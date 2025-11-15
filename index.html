@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatIIP</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+    <div class="logo">DS</div>
+    <div class="title">ChatIIP</div>
+    </div>
+    
+    <div class="main-container">
+        <div class="chat-container" id="chatContainer">
+            <div class="welcome-message" id="welcomeMessage">
+                <h1>Tôi có thể giúp gì cho bạn không ?</h1>
+                <p>Tôi sẵn sàng giúp bạn tìm việc hoặc tuyển dụng trong khu công nghiệp, cụm công nghiệp.</p>
+                
+                <div class="features">
+                    <div class="feature" onclick="selectFeature('ỨNG VIÊN')">
+                        <div class="feature-icon"><i class="fas fa-comment-dots"></i></div>
+                        <div class="feature-title">ỨNG VIÊN</div>
+                        <div class="feature-desc">Tìm việc làm theo vị trí, mức lương, ngành nghề, khu công nghiệp và cụm công nghiệp</div>
+                    </div>
+                    <div class="feature" onclick="selectFeature('NHÀ TUYỂN DỤNG')">
+                        <div class="feature-icon"><i class="fas fa-search"></i></div>
+                        <div class="feature-title">NHÀ TUYỂN DỤNG</div>
+                        <div class="feature-desc"> Đăng tin tuyển dụng và tìm ứng viên phù hợp / Quản lý hồ sơ ứng viên & sắp xếp phỏng vấn</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="message-input-container centered" id="messageInputContainer">
+            <div class="message-input-wrapper">
+                <div class="input-buttons">
+                    <button class="input-button" id="fileButton" title="Attach file">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <button class="input-button" id="voiceButton" title="Voice message">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                </div>
+                <input type="text" class="message-input" id="messageInput" placeholder="Nhập câu hỏi ở đây...">
+                <button class="send-button" id="sendButton">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+                <input type="file" id="fileInput" style="display: none;" multiple>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
