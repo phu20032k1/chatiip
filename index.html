@@ -11,15 +11,17 @@
     
     
     
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-9DLYZL4633"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-9DLYZL4633');
-</script>
+    <!-- Google Analytics - Multiple Tracking -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-9DLYZL4633"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      
+      // Track cho 2 property cùng lúc
+      gtag('config', 'G-9DLYZL4633');    
+      gtag('config', 'G-R5YNLSJQMZ');    
+    </script>
 
 
 
