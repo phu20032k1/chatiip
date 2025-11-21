@@ -293,3 +293,29 @@ document.addEventListener('DOMContentLoaded', function() {
         initSpeechRecognition();
     }
 });
+
+// Thêm hàm xử lý virtual keyboard
+function handleMobileResize() {
+    if (window.innerWidth <= 768) {
+        // Trên mobile, khi focus vào input, scroll xuống dưới
+        messageInput.addEventListener('focus', function() {
+            setTimeout(scrollToBottom, 300);
+        });
+        
+        // Khi blur khỏi input, cũng scroll xuống
+        messageInput.addEventListener('blur', function() {
+            setTimeout(scrollToBottom, 300);
+        });
+    }
+}
+
+// Gọi hàm trong DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+    // ... code hiện có ...
+    
+    // Thêm xử lý mobile
+    handleMobileResize();
+    
+    // Thêm resize listener
+    window.addEventListener('resize', handleMobileResize);
+});
