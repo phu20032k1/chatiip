@@ -1,5 +1,11 @@
-document.addEventListener('DOMContentLoaded', function() {
-    // DOM elements (giữ giống HTML gốc)
+// ============================================================
+//  CHAT + VOICE + FILE + HAMBURGER + NEWS (FULL, KHÔNG LƯỢC)
+// ============================================================
+
+document.addEventListener('DOMContentLoaded', function () {
+    // =========================
+    // DOM elements CHAT
+    // =========================
     const messageInput = document.getElementById('messageInput');
     const sendButton = document.getElementById('sendButton');
     const chatContainer = document.getElementById('chatContainer');
@@ -13,11 +19,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // ⭐ FIX QUAN TRỌNG: Auto scroll
     // =========================
     function scrollToBottom() {
-    // Sử dụng requestAnimationFrame để đảm bảo DOM đã cập nhật
-    requestAnimationFrame(() => {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-    });
-}
+        // Sử dụng requestAnimationFrame để đảm bảo DOM đã cập nhật
+        requestAnimationFrame(() => {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+    }
 
     // trạng thái (duy trì tên biến cũ để tránh lỗi)
     let isRecording = false;
@@ -77,79 +83,79 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ question: message })
         })
-        .then(res => res.json())
-        .then(data => {
-            hideTypingIndicator();
-            addBotMessage(data.answer || data.reply || "No response.");
-        })
-        .catch(() => {
-            hideTypingIndicator();
-            addBotMessage("⚠️ Lỗi kết nối đến chatbot Render.");
-        });
+            .then(res => res.json())
+            .then(data => {
+                hideTypingIndicator();
+                addBotMessage(data.answer || data.reply || "No response.");
+            })
+            .catch(() => {
+                hideTypingIndicator();
+                addBotMessage("⚠️ Lỗi kết nối đến chatbot Render.");
+            });
     }
 
     sendButton.addEventListener('click', sendMessage);
-    messageInput.addEventListener('keypress', function(e) {
+    messageInput.addEventListener('keypress', function (e) {
         if (e.key === 'Enter') sendMessage();
     });
 
     // ====================  HIỂN THỊ TIN NHẮN NGƯỜI DÙNG  ====================
     function addUserMessage(message, files = []) {
-    if (welcomeMessage && welcomeMessage.style.display !== 'none') {
-        welcomeMessage.style.display = 'none';
-    }
+        if (welcomeMessage && welcomeMessage.style.display !== 'none') {
+            welcomeMessage.style.display = 'none';
+        }
 
-    // ⭐ QUAN TRỌNG: Xóa class 'centered' để input chuyển xuống dưới
-    messageInputContainer.classList.remove('centered');
-    chatContainer.classList.add('has-messages');
+        // ⭐ QUAN TRỌNG: Xóa class 'centered' để input chuyển xuống dưới
+        messageInputContainer.classList.remove('centered');
+        chatContainer.classList.add('has-messages');
 
-    const userMessageElement = document.createElement('div');
-    userMessageElement.className = 'message user-message';
+        const userMessageElement = document.createElement('div');
+        userMessageElement.className = 'message user-message';
 
-    let messageContent = `<div class="message-bubble user-bubble">${escapeHtml(message)}</div>`;
+        let messageContent = `<div class="message-bubble user-bubble">${escapeHtml(message)}</div>`;
 
-    if (files && files.length > 0) {
-        files.forEach(file => {
-            messageContent += `
+        if (files && files.length > 0) {
+            files.forEach(file => {
+                messageContent += `
                 <div class="file-message">
                     <i class="fas fa-file file-icon"></i>
                     <span class="file-name">${escapeHtml(file.name)}</span>
                 </div>
             `;
-        });
+            });
+        }
+
+        userMessageElement.innerHTML = messageContent;
+        chatContainer.appendChild(userMessageElement);
+
+        // ⭐ Auto scroll
+        setTimeout(scrollToBottom, 50);
     }
-
-    userMessageElement.innerHTML = messageContent;
-    chatContainer.appendChild(userMessageElement);
-
-    // ⭐ Auto scroll
-    setTimeout(scrollToBottom, 50);
-}
 
     // ====================  HIỂN THỊ TIN NHẮN BOT  ====================
     function addBotMessage(message) {
-    // ⭐ ĐẢM BẢO: Xóa class 'centered' khi bot trả lời
-    messageInputContainer.classList.remove('centered');
-    chatContainer.classList.add('has-messages');
+        // ⭐ ĐẢM BẢO: Xóa class 'centered' khi bot trả lời
+        messageInputContainer.classList.remove('centered');
+        chatContainer.classList.add('has-messages');
 
-    const botMessageElement = document.createElement('div');
-    botMessageElement.className = 'message bot-message';
-    botMessageElement.innerHTML = `
+        const botMessageElement = document.createElement('div');
+        botMessageElement.className = 'message bot-message';
+        botMessageElement.innerHTML = `
         <div class="message-bubble bot-bubble">${formatMessage(message)}</div>
     `;
-    chatContainer.appendChild(botMessageElement);
+        chatContainer.appendChild(botMessageElement);
 
-    // ⭐ Auto scroll
-    setTimeout(scrollToBottom, 50);
-}
+        // ⭐ Auto scroll
+        setTimeout(scrollToBottom, 50);
+    }
 
     // ====================  FORMAT MESSAGE (bold & newline)  ====================
     function formatMessage(text) {
         if (!text) return "";
 
         text = text.replace(/&/g, "&amp;")
-                   .replace(/</g, "&lt;")
-                   .replace(/>/g, "&gt;");
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
 
         text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
         text = text.replace(/\n/g, "<br>");
@@ -159,10 +165,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function escapeHtml(unsafe) {
         return unsafe.replace(/&/g, "&amp;")
-                     .replace(/</g, "&lt;")
-                     .replace(/>/g, "&gt;")
-                     .replace(/"/g, "&quot;")
-                     .replace(/'/g, "&#039;");
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 
     // ====================  TYPING INDICATOR  ====================
@@ -182,23 +188,24 @@ document.addEventListener('DOMContentLoaded', function() {
         chatContainer.appendChild(typingElement);
 
         // ⭐ Auto scroll
-          setTimeout(scrollToBottom, 50);
+        setTimeout(scrollToBottom, 50);
     }
 
     function hideTypingIndicator() {
-    const typingElement = document.getElementById('typingIndicator');
-    if (typingElement) {
-        typingElement.remove();
-        // ⭐ Auto scroll sau khi xóa typing indicator
-        setTimeout(scrollToBottom, 50);
+        const typingElement = document.getElementById('typingIndicator');
+        if (typingElement) {
+            typingElement.remove();
+            // ⭐ Auto scroll sau khi xóa typing indicator
+            setTimeout(scrollToBottom, 50);
+        }
     }
-}
+
     // ====================  FILE UPLOAD  ====================
-    fileButton.addEventListener('click', function() {
+    fileButton.addEventListener('click', function () {
         fileInput.click();
     });
 
-    fileInput.addEventListener('change', function(e) {
+    fileInput.addEventListener('change', function (e) {
         const files = Array.from(e.target.files);
         if (files.length > 0) {
             const message = messageInput.value.trim() || "I'm sending you these files:";
@@ -234,20 +241,20 @@ document.addEventListener('DOMContentLoaded', function() {
             isRecording = true;
             voiceButton.innerHTML = '<i class="fas fa-stop"></i>';
             voiceButton.style.color = '#dc2626';
-        } catch (e) {}
+        } catch (e) { }
     }
 
     function stopSpeechToText() {
         if (!recognition) return;
         try {
             recognition.stop();
-        } catch (e) {}
+        } catch (e) { }
         isRecording = false;
         voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
         voiceButton.style.color = '';
     }
 
-    voiceButton.addEventListener('click', function() {
+    voiceButton.addEventListener('click', function () {
         if (!isRecording) startSpeechToText();
         else stopSpeechToText();
     });
@@ -262,24 +269,24 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ question: text })
         })
-        .then(res => res.json())
-        .then(data => {
-            hideTypingIndicator();
-            addBotMessage(data.answer || data.reply || "No response.");
-        })
-        .catch(() => {
-            hideTypingIndicator();
-            addBotMessage("⚠️ Lỗi kết nối chatbot.");
-        });
+            .then(res => res.json())
+            .then(data => {
+                hideTypingIndicator();
+                addBotMessage(data.answer || data.reply || "No response.");
+            })
+            .catch(() => {
+                hideTypingIndicator();
+                addBotMessage("⚠️ Lỗi kết nối chatbot.");
+            });
     }
 
-    window.stopRecording = function() {
+    window.stopRecording = function () {
         if (isRecording) stopSpeechToText();
     };
 
-    window.cancelRecording = function() {
+    window.cancelRecording = function () {
         if (isRecording) {
-            try { recognition.abort(); } catch (e) {}
+            try { recognition.abort(); } catch (e) { }
             isRecording = false;
             voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
             voiceButton.style.color = '';
@@ -292,30 +299,273 @@ document.addEventListener('DOMContentLoaded', function() {
     if (ensureSpeechSupport()) {
         initSpeechRecognition();
     }
-});
 
-// Thêm hàm xử lý virtual keyboard
-function handleMobileResize() {
-    if (window.innerWidth <= 768) {
-        // Trên mobile, khi focus vào input, scroll xuống dưới
-        messageInput.addEventListener('focus', function() {
-            setTimeout(scrollToBottom, 300);
+    // ====================  HANDLE MOBILE RESIZE  ====================
+    function handleMobileResize() {
+        if (window.innerWidth <= 768) {
+            messageInput.addEventListener('focus', function () {
+                setTimeout(scrollToBottom, 300);
+            });
+
+            messageInput.addEventListener('blur', function () {
+                setTimeout(scrollToBottom, 300);
+            });
+        }
+    }
+
+    handleMobileResize();
+    window.addEventListener('resize', handleMobileResize);
+
+    // ============================================================
+    //                 HAMBURGER + NEW CHAT
+    // ============================================================
+    const sidebar = document.getElementById("sidebar");
+    const hamburgerBtn = document.getElementById("hamburgerBtn");
+    const newChatBtn = document.getElementById("newChatBtn");
+
+    if (hamburgerBtn && sidebar) {
+        hamburgerBtn.addEventListener("click", () => {
+            sidebar.classList.toggle("open");
         });
-        
-        // Khi blur khỏi input, cũng scroll xuống
-        messageInput.addEventListener('blur', function() {
-            setTimeout(scrollToBottom, 300);
+    }
+
+    if (newChatBtn) {
+        newChatBtn.addEventListener("click", () => {
+            // Xóa toàn bộ tin nhắn
+            const messages = chatContainer.querySelectorAll('.message');
+            messages.forEach(m => m.remove());
+
+            // Hiện lại welcome
+            if (welcomeMessage) {
+                welcomeMessage.style.display = 'block';
+                if (!chatContainer.contains(welcomeMessage)) {
+                    chatContainer.insertBefore(welcomeMessage, chatContainer.firstChild);
+                }
+            }
+
+            // Đưa input về trạng thái centered
+            messageInputContainer.classList.add('centered');
+            chatContainer.classList.remove('has-messages');
+
+            // Xóa text đang nhập
+            messageInput.value = "";
+
+            // Đóng sidebar
+            if (sidebar) sidebar.classList.remove("open");
         });
+    }
+
+    // ============================================================
+    //                 NEWS SYSTEM + PHÂN TRANG
+    // ============================================================
+
+    const newsBtn = document.getElementById("newsBtn");
+    const newsBox = document.getElementById("newsBox");
+    const newsList = document.getElementById("newsList");
+    const newsPagination = document.getElementById("newsPagination");
+
+    const newsReader = document.getElementById("newsReader");
+    const newsBackBtn = document.getElementById("newsBackBtn");
+    const newsReaderImage = document.getElementById("newsReaderImage");
+    const newsReaderTitle = document.getElementById("newsReaderTitle");
+    const newsReaderSubtitle = document.getElementById("newsReaderSubtitle");
+    const newsReaderContent = document.getElementById("newsReaderContent");
+
+    // ----- DATA TIN TỨC (DEMO – bạn có thể sửa / thêm bao nhiêu tin cũng được) -----
+    
+ /*   const newsData = [
+    {
+        id: 1,
+        title: "IIP ra mắt AI mới",
+        subtitle: "Nền tảng AI tăng tốc gấp 4 lần",
+        img: "https://chatiip.com/images/ai.jpg",
+        content: `
+            <h3><strong>IIP AI</strong></h3>
+            <p>Công nghệ AI mới của IIP chính thức ra mắt.</p>
+            <img src="https://chatiip.com/images/demo.jpg">
+        `
+    },
+
+    {
+        id: 2,
+        title: "Cập nhật luật lao động 2024",
+        subtitle: "Những điểm mới bạn cần biết",
+        img: "https://chatiip.com/images/law.jpg",
+        content: `
+            <p><strong>Luật Lao động 2024</strong></p>
+            <p>Nhiều thay đổi quan trọng có hiệu lực.</p>
+        `
+    }
+]; */
+
+
+// ⭐⭐⭐ LOAD NEWS FROM BACKEND ⭐⭐⭐
+const API_BASE = "https://vietbaichatiip.onrender.com";   // 📌 Nếu deploy thì đổi link này
+
+let newsData = [];   // dữ liệu tin thật từ server
+
+async function loadNewsFromServer() {
+    try {
+        const res = await fetch(`${API_BASE}/api/news`);
+        newsData = await res.json();
+        renderNewsPage(1);  // sau khi load xong → show page 1
+    } catch (err) {
+        console.error("Không tải được tin tức từ server:", err);
     }
 }
 
-// Gọi hàm trong DOMContentLoaded
-document.addEventListener('DOMContentLoaded', function() {
-    // ... code hiện có ...
-    
-    // Thêm xử lý mobile
-    handleMobileResize();
-    
-    // Thêm resize listener
-    window.addEventListener('resize', handleMobileResize);
+// GỌI API NGAY KHI MỞ WEB
+loadNewsFromServer();
+
+
+
+    // ----- PHÂN TRANG -----
+    let currentPage = 1;
+    const itemsPerPage = 5;
+
+    function renderNewsPage(page) {
+        currentPage = page;
+        newsList.innerHTML = "";
+
+        const start = (page - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        const pageData = newsData.slice(start, end);
+
+        pageData.forEach((news, index) => {
+            const item = document.createElement("div");
+            item.className = "news-item";
+
+            item.innerHTML = `
+                <img src="${news.img}" class="news-thumb">
+                <div class="news-text">
+                    <div class="news-title">${news.title}</div>
+                    <div class="news-subtitle">${news.subtitle}</div>
+                </div>
+            `;
+
+            item.onclick = () => openNews(start + index);
+            newsList.appendChild(item);
+        });
+
+        renderPagination();
+    }
+
+    function renderPagination() {
+        newsPagination.innerHTML = "";
+        const totalPages = Math.ceil(newsData.length / itemsPerPage);
+
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = document.createElement("div");
+            btn.className = "page-btn";
+            if (i === currentPage) btn.classList.add("active");
+            btn.textContent = i;
+
+            btn.onclick = () => renderNewsPage(i);
+            newsPagination.appendChild(btn);
+        }
+    }
+
+    function openNews(index) {
+        const news = newsData[index];
+        if (!news) return;
+
+        newsReaderImage.src = news.img;
+        newsReaderTitle.textContent = news.title;
+        newsReaderSubtitle.textContent = news.subtitle;
+        newsReaderContent.innerHTML = news.content;
+        // ====================== SEO DYNAMIC ======================
+const slug = news.slug;
+const articleUrl = `https://chatiip.com/news/${slug}`;
+
+document.title = `${news.title} - ChatIIP`;
+
+// description (160 ký tự)
+const plainText = news.subtitle || news.content.replace(/<[^>]*>?/gm, "");
+const shortDesc = plainText.length > 160 ? plainText.slice(0,157) + "..." : plainText;
+
+// meta description
+document.getElementById("metaDescription").setAttribute("content", shortDesc);
+
+// OG tags
+document.getElementById("ogTitle").setAttribute("content", news.title);
+document.getElementById("ogDescription").setAttribute("content", shortDesc);
+document.getElementById("ogImage").setAttribute("content", news.img);
+document.getElementById("ogUrl").setAttribute("content", articleUrl);
+
+// Twitter
+document.getElementById("twitterTitle").setAttribute("content", news.title);
+document.getElementById("twitterDescription").setAttribute("content", shortDesc);
+document.getElementById("twitterImage").setAttribute("content", news.img);
+
+// JSON-LD (Google News)
+const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    "headline": news.title,
+    "description": shortDesc,
+    "image": [news.img],
+    "author": {
+        "@type": "Organization",
+        "name": "ChatIIP"
+    },
+    "publisher": {
+        "@type": "Organization",
+        "name": "ChatIIP",
+        "logo": {
+            "@type": "ImageObject",
+            "url": "https://chatiip.com/logo.png"
+        }
+    },
+    "datePublished": news.publishedAt,
+    "dateModified": news.modifiedAt,
+    "mainEntityOfPage": articleUrl
+};
+
+document.getElementById("seoJsonLd").textContent = JSON.stringify(jsonLd, null, 2);
+
+// URL đẹp
+window.history.pushState({}, news.title, `/news/${slug}`);
+
+
+        newsReader.classList.add("open");
+    }
+
+    if (newsBackBtn) {
+        newsBackBtn.addEventListener("click", () => {
+            newsReader.classList.remove("open");
+            // RESET SEO
+document.title = "ChatIIP - Trợ lý AI & Tin tức";
+
+document.getElementById("metaDescription").setAttribute("content",
+    "ChatIIP - Trợ lý AI, tin tức và tư vấn pháp luật.");
+
+document.getElementById("ogTitle").setAttribute("content", "ChatIIP");
+document.getElementById("ogDescription").setAttribute("content",
+    "ChatIIP - Trợ lý AI, tin tức và tư vấn pháp luật.");
+document.getElementById("ogImage").setAttribute("content",
+    "https://chatiip.com/default-og.jpg");
+document.getElementById("ogUrl").setAttribute("content", "https://chatiip.com");
+
+document.getElementById("twitterTitle").setAttribute("content", "ChatIIP");
+document.getElementById("twitterDescription").setAttribute("content",
+    "ChatIIP - Trợ lý AI, tin tức và tư vấn pháp luật.");
+document.getElementById("twitterImage").setAttribute("content",
+    "https://chatiip.com/default-og.jpg");
+
+// reset JSON-LD
+document.getElementById("seoJsonLd").textContent = "";
+
+        });
+    }
+
+    if (newsBtn && newsBox) {
+        newsBtn.addEventListener("click", () => {
+            newsBox.classList.toggle("open");
+        });
+    }
+
+    // Khởi tạo trang đầu tiên
+    if (newsData.length > 0) {
+        renderNewsPage(1);
+    }
 });

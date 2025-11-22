@@ -9,7 +9,39 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 
-    <!-- Google Analytics - Multiple Tracking -->
+
+
+    <!-- BASE SEO -->
+    <meta name="description" content="ChatIIP - Trợ lý AI, tin tức và tư vấn luật lao động.">
+    <meta name="author" content="ChatIIP">
+
+    <!-- GEO TAGS -->
+    <meta name="geo.region" content="VN-HN">
+    <meta name="geo.placename" content="Ha Noi">
+    <meta name="geo.position" content="21.0278;105.8342">
+    <meta name="ICBM" content="21.0278, 105.8342">
+
+    <!-- OPEN GRAPH (FACEBOOK, ZALO, LINKEDIN...) -->
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="ChatIIP">
+    <meta property="og:title" content="ChatIIP - Trợ lý AI & Tin tức" id="ogTitle">
+    <meta property="og:description" content="ChatIIP - Trợ lý AI, tin tức và tư vấn luật lao động." id="ogDescription">
+    <meta property="og:image" content="https://chatiip.com/default-og.jpg" id="ogImage">
+    <meta property="og:url" content="https://chatiip.com" id="ogUrl">
+
+    <!-- TWITTER CARD -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="ChatIIP - Trợ lý AI & Tin tức" id="twitterTitle">
+    <meta name="twitter:description" content="ChatIIP - Trợ lý AI, tin tức và tư vấn luật lao động." id="twitterDescription">
+    <meta name="twitter:image" content="https://chatiip.com/default-og.jpg" id="twitterImage">
+
+    <!-- JSON-LD SEO (SẼ ĐƯỢC JS GHI ĐÈ) -->
+    <script type="application/ld+json" id="seoJsonLd">
+    </script>
+
+    
+
+<!-- Google Analytics - Multiple Tracking -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-9DLYZL4633"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -23,6 +55,60 @@
 <body>
 
 
+<!-- SIDEBAR + HAMBURGER BUTTON -->
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <h2>ChatIIP</h2>
+    </div>
+
+    <div class="sidebar-menu">
+        <button class="menu-item" id="newChatBtn">
+            <i class="fas fa-plus"></i> Đoạn chat mới
+        </button>
+    </div>
+</div>
+
+<!-- Nút Hamburger -->
+<button class="hamburger-btn" id="hamburgerBtn">
+    <i class="fas fa-bars"></i>
+</button>
+
+
+
+<!-- 🔵 NÚT TIN TỨC -->
+<button class="news-btn" id="newsBtn">
+    <i class="fas fa-newspaper"></i>
+</button>
+
+<!-- 🔵 POPUP DANH SÁCH TIN -->
+<div class="news-box" id="newsBox">
+    <div class="news-header">
+        <h3>Tin tức</h3>
+    </div>
+
+    <div class="news-list" id="newsList"></div>
+
+    <!-- PAGINATION -->
+    <div class="news-pagination" id="newsPagination"></div>
+</div>
+
+<!-- 🔵 TRANG ĐỌC TIN -->
+<div class="news-reader" id="newsReader">
+    <button class="news-back-btn" id="newsBackBtn">◀ Quay lại</button>
+
+    <img id="newsReaderImage" class="news-reader-img">
+
+    <h2 id="newsReaderTitle"></h2>
+    <h4 id="newsReaderSubtitle"></h4>
+
+    <div id="newsReaderContent"></div>
+</div>
+
+
+
+
+
+<!-- main -->
     <div class="main-container">
 
         <div class="chat-container" id="chatContainer">
