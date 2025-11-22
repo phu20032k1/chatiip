@@ -53,14 +53,17 @@ body {
     position: relative;
 }
 
+/* CHỖ HIỆN TIN NHẮN */
 /* CHỖ HIỆN TIN NHẮN - Sửa lỗi */
 .chat-container {
     flex: 1;
     overflow-y: auto;
+    padding: 40px 24px 140px; /* chừa chỗ cho input ở dưới */
     padding: 40px 24px 140px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center; /* khi chưa chat thì căn giữa */
     justify-content: center;
     transition: all 0.3s ease;
     scroll-behavior: smooth; /* Di chuyển lên đây */
@@ -80,7 +83,7 @@ body {
 }
 
 .welcome-message h1 {
-    font-size: 35px;
+    font-size: 28px;
     margin-bottom: 12px;
     color: #111827;
     font-weight: 600;
@@ -115,6 +118,7 @@ body {
     position: fixed;
     left: 0;
     right: 0;
+    bottom: -100px;;
     bottom: -50px;;
     z-index: 100;
     border-top: 1px solid #ffffff;
@@ -342,10 +346,22 @@ body {
     }
 
     .welcome-message h1 {
-        font-size: 35 px;
+        font-size: 22px;
         margin-bottom: 8px;
     }
 
+    /* CHỖ HIỆN TIN NHẮN - Thêm scroll behavior */
+.chat-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 40px 24px 140px; /* chừa chỗ cho input ở dưới */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center; /* khi chưa chat thì căn giữa */
+    transition: all 0.3s ease;
+    scroll-behavior: smooth; /* Thêm dòng này để scroll mượt */
+}
     /* CHỖ HIỆN TIN NHẮN - Sửa padding và scroll */
     .chat-container {
         padding: 20px 12px 120px;
@@ -359,6 +375,7 @@ body {
 
     /* INPUT CONTAINER - Sửa vị trí */
     .message-input-container.centered {
+        bottom: 15%;
         bottom: 10%;
         padding: 12px 16px;
     }
@@ -409,6 +426,7 @@ body {
     }
 
     .message-bubble {
+        max-width: 90%;
         max-width: 85%;
         font-size: 14px;
         padding: 8px 12px;
@@ -422,7 +440,7 @@ body {
     }
 
     .welcome-message h1 {
-        font-size: 35px;
+        font-size: 20px;
     }
 
     .welcome-message p {
@@ -433,7 +451,7 @@ body {
 /* Thêm breakpoint cho màn hình rất nhỏ */
 @media (max-width: 480px) {
     .welcome-message h1 {
-        font-size: 35px;
+        font-size: 18px;
     }
 
     .chat-container {
@@ -459,7 +477,3 @@ body {
         font-size: 13px;
     }
 }
-
-
-
-
