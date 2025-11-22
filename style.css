@@ -80,7 +80,7 @@ body {
 }
 
 .welcome-message h1 {
-    font-size: 28px;
+    font-size: 35px;
     margin-bottom: 12px;
     color: #111827;
     font-weight: 600;
@@ -342,7 +342,7 @@ body {
     }
 
     .welcome-message h1 {
-        font-size: 22px;
+        font-size: 35 px;
         margin-bottom: 8px;
     }
 
@@ -422,7 +422,7 @@ body {
     }
 
     .welcome-message h1 {
-        font-size: 20px;
+        font-size: 35px;
     }
 
     .welcome-message p {
@@ -433,7 +433,7 @@ body {
 /* Thêm breakpoint cho màn hình rất nhỏ */
 @media (max-width: 480px) {
     .welcome-message h1 {
-        font-size: 18px;
+        font-size: 35px;
     }
 
     .chat-container {
