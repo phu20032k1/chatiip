@@ -491,6 +491,10 @@ document.getElementById("ogTitle").setAttribute("content", news.title);
 document.getElementById("ogDescription").setAttribute("content", shortDesc);
 document.getElementById("ogImage").setAttribute("content", news.img);
 document.getElementById("ogUrl").setAttribute("content", articleUrl);
+document.head.innerHTML += `
+    <meta property="article:published_time" content="${news.publishedAt}">
+    <meta property="article:modified_time" content="${news.modifiedAt}">
+`;
 
 // Twitter
 document.getElementById("twitterTitle").setAttribute("content", news.title);
@@ -534,6 +538,9 @@ window.history.pushState({}, news.title, `/news/${slug}`);
         newsBackBtn.addEventListener("click", () => {
             newsReader.classList.remove("open");
             // RESET SEO
+// Reset OG nâng cao
+document.querySelectorAll('meta[property="article:published_time"], meta[property="article:modified_time"]').forEach(tag => tag.remove());
+      
 document.title = "ChatIIP - Trợ lý AI & Tin tức";
 
 document.getElementById("metaDescription").setAttribute("content",
