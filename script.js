@@ -1,8 +1,94 @@
+function jsonToIndustrialTableV2(data) {
+    if (!Array.isArray(data) || data.length === 0) {
+        return "<p>Không có dữ liệu.</p>";
+    }
+
+    // ⭐ TỰ ĐỘNG ÁNH XẠ KEY TIẾNG VIỆT → KEY CHUẨN
+    function normalize(item) {
+        return {
+            name: item["Tên"] || item["ten"] || item["Name"] || item.name || "",
+            address: item["Địa chỉ"] || item["diachi"] || item["Address"] || item.address || "",
+            area: item["Tổng diện tích"] || item["dien_tich"] || item["area"] || item["Area"] || "",
+            industry: item["Ngành nghề"] || item["nganh_nghe"] || item["Industry"] || item.industry || ""
+        };
+    }
+
+    // ⭐ CHUẨN HÓA MỌI PHẦN TỬ
+    data = data.map(normalize);
+
+    let html = `
+    <div style="
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 500px;
+">
+    <table style="
+        width:100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 14px;
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+    ">
+        <thead>
+            <tr style="background:#000000ff; color:white;">
+                <th style="padding:10px;">STT</th>
+                <th style="padding:10px;">Tên</th>
+                <th style="padding:10px;">Địa chỉ</th>
+                <th style="padding:10px;">Diện tích</th>
+                <th style="padding:10px;">Ngành nghề</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+    data.forEach((item, idx) => {
+        html += `
+        <tr style="background:${idx % 2 === 0 ? '#fafafa' : '#ffffff'};">
+            <td style="padding:10px; border-top:1px solid #e5e7eb;">${idx + 1}</td>
+            <td style="padding:10px; border-top:1px solid #e5e7eb;">${item.name}</td>
+            <td style="padding:10px; border-top:1px solid #e5e7eb;">${item.address}</td>
+            <td style="padding:10px; border-top:1px solid #e5e7eb;">${item.area}</td>
+            <td style="padding:10px; border-top:1px solid #e5e7eb;">
+                <ul style="margin:0; padding-left:18px; list-style-type:disc;">
+                    ${
+                        (item.industry || "")
+                        .split(/[\n•;]/)
+                        .map(i => i.trim())
+                        .filter(i => i !== "")
+                        .map(i => `<li>${i}</li>`)
+                        .join("")
+                    }
+                </ul>
+            </td>
+        </tr>`;
+    });
+
+    html += `
+        </tbody>
+    </table>
+    </div>
+    `;
+
+    return html;
+}
+
+
+
+
 // ============================================================
 //  CHAT + VOICE + FILE + HAMBURGER + NEWS (FULL, KHÔNG LƯỢC)
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', function () {
+    
+    
+    
+    
+    
+    
+    
     // =========================
     // DOM elements CHAT
     // =========================
@@ -140,9 +226,51 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const botMessageElement = document.createElement('div');
         botMessageElement.className = 'message bot-message';
-        botMessageElement.innerHTML = `
-        <div class="message-bubble bot-bubble">${formatMessage(message)}</div>
-    `;
+    let finalMessage = message;
+
+try {
+    let raw = message;
+
+    // B1: loại bỏ ký tự xuống dòng không hợp lệ
+    raw = raw.replace(/\n/g, "");
+    raw = raw.trim();
+
+    let parsed;
+
+    // B2: parse thử lần 1
+    try { parsed = JSON.parse(raw); } catch(e) {}
+
+    // B3: nếu vẫn là string → parse lần 2
+    if (parsed && typeof parsed === "string") {
+        try { parsed = JSON.parse(parsed); } catch(e) {}
+    }
+
+    // B4: nếu vẫn là string → parse lần 3 (vì backend escape 3 lần)
+    if (parsed && typeof parsed === "string") {
+        try { parsed = JSON.parse(parsed); } catch(e) {}
+    }
+
+    // B5: check object dạng { data: [...] }
+    if (parsed && typeof parsed === "object" && Array.isArray(parsed.data)) {
+        finalMessage = jsonToIndustrialTableV2(parsed.data);
+    }
+
+    // B6: trả về array trực tiếp
+    else if (Array.isArray(parsed)) {
+        finalMessage = jsonToIndustrialTableV2(parsed);
+    }
+
+} catch (err) {
+    console.log("JSON PARSE ERR", err);
+}
+
+
+
+
+botMessageElement.innerHTML = `
+    <div class="message-bubble bot-bubble">${finalMessage}</div>
+`;
+
         chatContainer.appendChild(botMessageElement);
 
         // ⭐ Auto scroll
@@ -169,6 +297,8 @@ document.addEventListener('DOMContentLoaded', function () {
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
+        
+        
     }
 
     // ====================  TYPING INDICATOR  ====================
@@ -316,18 +446,23 @@ document.addEventListener('DOMContentLoaded', function () {
     handleMobileResize();
     window.addEventListener('resize', handleMobileResize);
 
-    // ============================================================
-    //                 HAMBURGER + NEW CHAT
-    // ============================================================
-    const sidebar = document.getElementById("sidebar");
-    const hamburgerBtn = document.getElementById("hamburgerBtn");
-    const newChatBtn = document.getElementById("newChatBtn");
 
-    if (hamburgerBtn && sidebar) {
-        hamburgerBtn.addEventListener("click", () => {
-            sidebar.classList.toggle("open");
-        });
-    }
+    // ============================================================
+//                 HAMBURGER + NEW CHAT (IPHONE SAFE)
+// ============================================================
+const sidebar = document.getElementById("sidebar");
+const hamburgerBtn = document.getElementById("hamburgerBtn");
+const newChatBtn = document.getElementById("newChatBtn");
+
+if (hamburgerBtn && sidebar) {
+    hamburgerBtn.addEventListener("click", () => {
+        // Mở / đóng sidebar
+        sidebar.classList.toggle("open");
+        // Di chuyển nút hamburger bằng class (an toàn cho iPhone)
+        hamburgerBtn.classList.toggle("is-open");
+    });
+}
+
 
     if (newChatBtn) {
         newChatBtn.addEventListener("click", () => {

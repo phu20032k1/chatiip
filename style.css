@@ -10,8 +10,10 @@ body {
     color: #333333;
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    overflow: auto;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-text-size-adjust: 100%;
 }
 
 
@@ -28,18 +30,19 @@ body {
 /* CHAT CONTAINER */
 .chat-container {
     flex: 1;
-    overflow-y: auto;
-    padding: 32px 24px 140px;
+    overflow-y: scroll;
+     padding: 80px 24px 140px; 
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
+    -webkit-overflow-scrolling: touch;
 }
 
 .chat-container.has-messages {
     justify-content: flex-start;
-    padding-top: 20px;
+    padding-top: 80px;
 }
 
 /* WELCOME MESSAGE */
@@ -68,6 +71,16 @@ body {
     padding: 0;
     transition: all 0.35s ease;
 }
+
+
+
+.hamburger-btn,
+.news-btn {
+    position: fixed;
+    z-index: 9999; /* luôn trên cùng */
+}
+
+
 
 /* INPUT CONTAINER — TRẠNG THÁI CHAT */
 .message-input-container:not(.centered) {
@@ -300,6 +313,11 @@ body {
     }
 }
 
+@media (max-width: 480px) {
+    .chat-container {
+        padding: 100px 16px 110px;
+    }
+}
 
 
 
@@ -374,19 +392,19 @@ body {
     cursor: pointer;
     z-index: 300;
     font-size: 20px;
-    transition: all 0.2s ease;
+    transition: left 0.25s ease, background 0.2s ease;
 }
 
 .hamburger-btn:hover {
     background: #f3f4f6;
 }
 
-/* When sidebar opens, push hamburger to the right */
-.sidebar.open ~ .hamburger-btn {
+/* Trạng thái khi sidebar mở – điều khiển bằng JS (class .is-open) */
+.hamburger-btn.is-open {
     left: 296px;
 }
 
-/* Responsive cho mobile */
+/* Responsive cho mobile (iPhone, tablet nhỏ) */
 @media (max-width: 768px) {
     .sidebar {
         width: 80%;
@@ -395,10 +413,12 @@ body {
     .sidebar.open {
         left: 0;
     }
-    .sidebar.open +  .hamburger-btn {
-        left: calc(80% + 16px);
+
+    .hamburger-btn.is-open {
+        left: calc(65% + 16px);
     }
 }
+
 
 
 
@@ -407,7 +427,7 @@ body {
 /* ============================== */
 .news-btn {
     position: fixed;
-    top: 16px;
+    top: env(safe-area-inset-top, 16px);
     right: 16px;
     width: 44px;
     height: 44px;
@@ -452,6 +472,7 @@ body {
 .news-list {
     overflow-y: auto;
     padding: 14px 16px;
+    -webkit-overflow-scrolling: touch; /* mượt trên iPhone */
 }
 
 /* ============================== */
@@ -518,6 +539,7 @@ body {
     overflow-y: auto;
     transition: all 0.35s ease;
     z-index: 400;
+    -webkit-overflow-scrolling: touch;
 }
 .news-reader.open { right: 0; }
 
@@ -556,14 +578,19 @@ body {
     margin: 14px 0;
 }
 
+
+
 @media (max-width: 480px) {
     .news-box {
-        width: 90%;
-        right: 5%;
-        left: 5%;
-        max-height: 70vh;
+        width: 94%;
+        left: 3%;
+        right: 3%;
+        top: 64px;
+        max-height: 65vh;
+        -webkit-overflow-scrolling: touch;
     }
 }
+
 
 
 
