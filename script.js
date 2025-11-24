@@ -1,3 +1,9 @@
+// ⭐  Tự động bật news-mode nếu reload trực tiếp URL /news/slug
+if (location.pathname.startsWith("/news/")) {
+    document.body.classList.add("news-mode");
+}
+// ============================================================
+
 function jsonToIndustrialTableV2(data) {
     if (!Array.isArray(data) || data.length === 0) {
         return "<p>Không có dữ liệu.</p>";
@@ -487,6 +493,7 @@ if (hamburgerBtn && sidebar) {
 
             // Đóng sidebar
             if (sidebar) sidebar.classList.remove("open");
+            hamburgerBtn.classList.remove("is-open");
         });
     }
 
@@ -608,6 +615,9 @@ loadNewsFromServer();
         newsReaderTitle.textContent = news.title;
         newsReaderSubtitle.textContent = news.subtitle;
         newsReaderContent.innerHTML = news.content;
+
+        document.body.classList.add("news-mode");
+
         // ====================== SEO DYNAMIC ======================
 const slug = news.slug;
 const articleUrl = `https://chatiip.com/news/${slug}`;
@@ -711,3 +721,6 @@ document.getElementById("seoJsonLd").textContent = "";
         renderNewsPage(1);
     }
 });
+
+
+

@@ -93,7 +93,7 @@
 
 <body>
 
-    <!-- ⚡⚡⚡ PHẦN TỬ FIXED ĐƯỢC ĐƯA LÊN ĐẦU BODY (CÁCH 1) ⚡⚡⚡ -->
+   
 
     <!-- Nút Hamburger -->
     <button class="hamburger-btn" id="hamburgerBtn">
@@ -151,20 +151,34 @@
         <div class="message-input-container centered" id="messageInputContainer">
             <div class="message-input-wrapper">
 
-                <div class="input-buttons">
-                    <button class="input-button" id="fileButton"><i class="fas fa-paperclip"></i></button>
-                    <button class="input-button" id="voiceButton"><i class="fas fa-microphone"></i></button>
-                </div>
+    <!-- Nút + bên trái -->
+    <button class="input-button" id="fileButton">
+        <i class="fas fa-plus"></i>
+    </button>
 
-                <input type="text" class="message-input" id="messageInput" placeholder="Nhập câu hỏi ở đây...">
+    <!-- Ô nhập nội dung -->
+    <input
+        type="text"
+        class="message-input"
+        id="messageInput"
+        placeholder="Nhập câu hỏi ở đây..."
+    >
 
-                <button class="send-button" id="sendButton">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
+    <!-- Nút micro bên phải -->
+    <button class="input-button" id="voiceButton">
+        <i class="fas fa-microphone"></i>
+    </button>
 
-                <input type="file" id="fileInput" multiple hidden>
+    <!-- Nút gửi hình tròn đen -->
+    <button class="send-button" id="sendButton">
+        <i class="fas fa-arrow-up"></i>
+    </button>
 
-            </div>
+    <!-- Input file ẩn, JS vẫn dùng được -->
+    <input type="file" id="fileInput" multiple hidden>
+
+</div>
+
         </div>
 
     </div>
