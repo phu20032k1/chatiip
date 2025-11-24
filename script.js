@@ -1,7 +1,8 @@
 // ⭐  Tự động bật news-mode nếu reload trực tiếp URL /news/slug
-if (location.pathname.startsWith("/news/")) {
+if (location.pathname.startsWith("/news/") && !document.body.classList.contains("force-chat")) {
     document.body.classList.add("news-mode");
 }
+
 // ============================================================
 
 function jsonToIndustrialTableV2(data) {
@@ -471,31 +472,33 @@ if (hamburgerBtn && sidebar) {
 
 
     if (newChatBtn) {
-        newChatBtn.addEventListener("click", () => {
-            // Xóa toàn bộ tin nhắn
-            const messages = chatContainer.querySelectorAll('.message');
-            messages.forEach(m => m.remove());
+    newChatBtn.addEventListener("click", () => {
+        // Xóa toàn bộ tin nhắn
+        const messages = chatContainer.querySelectorAll('.message');
+        messages.forEach(m => m.remove());
 
-            // Hiện lại welcome
-            if (welcomeMessage) {
-                welcomeMessage.style.display = 'block';
-                if (!chatContainer.contains(welcomeMessage)) {
-                    chatContainer.insertBefore(welcomeMessage, chatContainer.firstChild);
-                }
+        // Hiện lại welcome
+        if (welcomeMessage) {
+            welcomeMessage.style.display = 'block';
+            if (!chatContainer.contains(welcomeMessage)) {
+                chatContainer.insertBefore(welcomeMessage, chatContainer.firstChild);
             }
+        }
 
-            // Đưa input về trạng thái centered
-            messageInputContainer.classList.add('centered');
-            chatContainer.classList.remove('has-messages');
+        // Đưa input về trạng thái centered
+        messageInputContainer.classList.add('centered');
+        chatContainer.classList.remove('has-messages');
 
-            // Xóa text đang nhập
-            messageInput.value = "";
+        // Xóa text đang nhập
+        messageInput.value = "";
 
-            // Đóng sidebar
-            if (sidebar) sidebar.classList.remove("open");
-            hamburgerBtn.classList.remove("is-open");
-        });
-    }
+        // ✅ THÊM 2 DÒNG NÀY VÀO:
+        // Đóng sidebar
+        if (sidebar) sidebar.classList.remove("open");
+        hamburgerBtn.classList.remove("is-open");
+        // ✅ XONG
+    });
+}
 
     // ============================================================
     //                 NEWS SYSTEM + PHÂN TRANG
@@ -636,10 +639,15 @@ document.getElementById("ogTitle").setAttribute("content", news.title);
 document.getElementById("ogDescription").setAttribute("content", shortDesc);
 document.getElementById("ogImage").setAttribute("content", news.img);
 document.getElementById("ogUrl").setAttribute("content", articleUrl);
-document.head.innerHTML += `
-    <meta property="article:published_time" content="${news.publishedAt}">
-    <meta property="article:modified_time" content="${news.modifiedAt}">
-`;
+function addMetaTag(property, content) {
+    let meta = document.createElement('meta');
+    meta.setAttribute('property', property);
+    meta.setAttribute('content', content);
+    document.head.appendChild(meta);
+}
+
+addMetaTag('article:published_time', news.publishedAt);
+addMetaTag('article:modified_time', news.modifiedAt);
 
 // Twitter
 document.getElementById("twitterTitle").setAttribute("content", news.title);
@@ -716,10 +724,9 @@ document.getElementById("seoJsonLd").textContent = "";
         });
     }
 
-    // Khởi tạo trang đầu tiên
-    if (newsData.length > 0) {
-        renderNewsPage(1);
-    }
+    if (newsData && newsData.length > 0) {
+    renderNewsPage(1);
+}
 });
 
 

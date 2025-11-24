@@ -29,12 +29,13 @@ body {
 
 /* CHAT CONTAINER */
 .chat-container {
+    width: 100%;
     flex: 1;
     overflow-y: scroll;
      padding: 80px 24px 140px; 
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     transition: all 0.3s ease;
     -webkit-overflow-scrolling: touch;
@@ -45,6 +46,7 @@ body {
     padding-top: 80px;
 }
 
+
 /* WELCOME MESSAGE */
 .welcome-message {
     text-align: center;
@@ -52,8 +54,9 @@ body {
     margin: 0 auto;
 }
 
+/* QUY TẮC GỐC - MOBILE FIRST */
 .welcome-message h1 {
-    font-size: 28px;  /* tăng từ 24px lên 28px */
+    font-size: 24px;
     font-weight: 700;
     margin-bottom: 12px;
     color: #111827;
@@ -74,13 +77,7 @@ body {
 
 
 
-/* Hamburger + News: vị trí cố định, đặt đúng chỗ */
-.hamburger-btn {
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    z-index: 9999;
-}
+
 
 .news-btn {
     position: fixed;
@@ -174,9 +171,9 @@ body {
 
 /* MESSAGES */
 .message {
+    width: 100%;
     max-width: 768px;
     margin: 0 auto 16px;
-    width: 100%;
     display: flex;
 }
 
@@ -256,11 +253,12 @@ body {
 /* MOBILE RẤT NHỎ (≤ 480px) */
 @media (max-width: 480px) {
     .welcome-message h1 {
-        font-size: px;
+        font-size: 22px;
+        line-height: 1.3;
     }
 
     .chat-container {
-        padding: 16px 10px 110px;
+        padding: 70px 10px 110px;   /* top nhỏ hơn, 2 bên hẹp hơn */
     }
 
     .message-input-container.centered {
@@ -268,7 +266,11 @@ body {
     }
 
     .message-input-wrapper {
-        padding: 6px 10px;
+        padding: 8px 10px;
+        max-width: 100%;
+    }
+
+    .message {
         max-width: 100%;
     }
 
@@ -278,25 +280,24 @@ body {
         padding: 10px 14px;
     }
 
-     .news-reader {
+    .news-reader {
         width: 100%;
         max-width: 100%;
     }
 
-    .news-reader-img { height: 180px; }
+    .news-reader-img {
+        height: 180px;
+    }
 }
 
 
 
 
-/* MOBILE LỚN (481–768px) */
-@media (max-width: 768px) {
-    .welcome-message h1 {
-        font-size: 28px;
-    }
 
+/* MOBILE LỚN (481–768px) */
+@media (min-width: 481px) and (max-width: 768px) {
     .chat-container {
-        padding: 20px 12px 120px;
+        padding: 90px 16px 120px;
     }
 
     .message-input-wrapper {
@@ -304,20 +305,23 @@ body {
     }
 
     .message {
-        padding: 0 8px;
+        max-width: 640px;
     }
 }
 
 /* TABLET (769–1024px) */
-@media (max-width: 1024px) {
-    .welcome-message h1 {
-        font-size: 28px;
+@media (min-width: 769px) and (max-width: 1024px) {
+    .chat-container {
+        padding: 100px 24px 140px;
     }
 
-    .message-bubble {
-        max-width: 85%;
+    .message {
+        max-width: 720px;
     }
 }
+
+
+
 
 /* LAPTOP NHỎ (1025–1366px) */
 @media (max-width: 1366px) {
@@ -337,11 +341,6 @@ body {
     }
 }
 
-@media (max-width: 480px) {
-    .chat-container {
-        padding: 100px 16px 110px;
-    }
-}
 
 
 /* ===================================================== */
@@ -350,60 +349,29 @@ body {
 
 /* ⭐ Màn hình rất lớn (≥ 1440px) – bing layout */
 @media (min-width: 1440px) {
-
-    /* Chat container nằm giữa và rộng hơn */
     .chat-container {
-        max-width: 1100px !important;
-        margin: 0 auto !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
+        width: 100%;             /* ⭐ BẮT BUỘC */
+        max-width: 1100px;       /* Giữ trung tâm */
+        margin: 0 auto;          /* Căn giữa */
+        padding-left: 0;
+        padding-right: 0;
     }
 
-    /* Ô nhập tin nhắn to hơn, trung tâm */
     .message-input-wrapper {
-        max-width: 1100px !important;
-        margin: 0 auto !important;
-        padding: 14px 22px !important;
-        font-size: 18px !important;
+        width: 100%;             /* ⭐ BẮT BUỘC */
+        max-width: 1100px;       /* Đồng bộ với chat-container */
+        margin: 0 auto;
+        padding: 14px 22px;
+        font-size: 18px;
     }
 
-    .message-input {
-        font-size: 18px !important;
-    }
-
-    .send-button {
-        width: 40px !important;
-        height: 40px !important;
-    }
-
-    /* Tin nhắn hiển thị đẹp hơn */
-    .bot-bubble,
-    .user-bubble {
-        font-size: 18px !important;
-        line-height: 1.8 !important;
-    }
-
-    /* Tiêu đề lớn kiểu Bing */
-    .welcome-message h1 {
-        font-size: 42px !important;
-        text-align: center;
-        font-weight: 800;
-    }
-
-    /* Tin tức reader nằm giữa */
-    .news-reader {
-        max-width: 900px !important;
-        left: 0 !important;
-        right: 0 !important;
-        margin: 0 auto !important;
-        position: absolute !important;
-    }
-
-    /* Popup tin tức đặt đúng vị trí */
-    .news-box {
-        right: calc(50% - 550px) !important;
+    .message {
+        max-width: 900px;        /* Bubble content */
+        margin-left: auto;
+        margin-right: auto;
     }
 }
+
 
 /* ⭐ Màn hình cực rộng (≥ 1600px) */
 @media (min-width: 1600px) {
@@ -413,26 +381,6 @@ body {
     }
 }
 
-/* ⭐ Mobile chuẩn Bing */
-@media (max-width: 480px) {
-    .welcome-message h1 {
-        font-size: 26px !important;
-    }
-
-    .message-input-wrapper {
-        padding: 10px 14px !important;
-        font-size: 15px !important;
-    }
-
-    .bot-bubble,
-    .user-bubble {
-        font-size: 15px !important;
-    }
-
-    .news-reader {
-        padding: 14px !important;
-    }
-}
 
 
 
@@ -513,9 +461,13 @@ body {
 }
 
 /* Trạng thái khi sidebar mở – điều khiển bằng JS (class .is-open) */
+/* Khi sidebar mở */
 .hamburger-btn.is-open {
     left: 296px;
 }
+
+
+
 
 /* Responsive cho mobile (iPhone, tablet nhỏ) */
 @media (max-width: 768px) {
@@ -712,7 +664,9 @@ body {
 
 /* ⭐ Ẩn giao diện chatbot khi ở trang tin tức */
 body.news-mode .main-container {
-    display: none !important;
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
 }
 
 /* ⭐ Trang tin tức mở full width */
@@ -729,6 +683,10 @@ body.news-mode .news-reader {
     height: auto !important;
     object-fit: cover;
 }
+
+
+
+
 
 
 
