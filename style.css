@@ -608,14 +608,19 @@ body {
     z-index: 400;
     -webkit-overflow-scrolling: touch;
 }
-.news-reader.open { right: 0; }
 
+/* Đảm bảo news reader hiển thị đúng */
+.news-reader.open {
+    right: 0;
+    display: block !important;
+}
+
+/* Đảm bảo ảnh hiển thị đúng */
 .news-reader-img {
-    width: 100%;
-    height: 220px;
-    border-radius: 12px;
+    max-width: 100%;
+    height: auto;
     object-fit: cover;
-    margin-bottom: 16px;
+    border-radius: 12px;
 }
 
 .news-back-btn {
@@ -647,14 +652,37 @@ body {
 
 
 
+/* Đảm bảo news reader hiển thị đúng */
+.news-reader.open {
+    right: 0;
+    display: block !important;
+}
+
+/* Fix cho mobile */
+@media (max-width: 768px) {
+    .news-reader.open {
+        width: 100% !important;
+        max-width: 100% !important;
+        right: 0 !important;
+    }
+}
+
+/* Đảm bảo ảnh hiển thị đúng */
+.news-reader-img {
+    max-width: 100%;
+    height: auto;
+    object-fit: cover;
+    border-radius: 12px;
+}
+
+/* Fix cho news box trên mobile */
 @media (max-width: 480px) {
     .news-box {
-        width: 94%;
-        left: 3%;
-        right: 3%;
-        top: 64px;
-        max-height: 65vh;
-        -webkit-overflow-scrolling: touch;
+        width: 94vw;
+        left: 3vw;
+        right: 3vw;
+        top: 70px;
+        max-height: 70vh;
     }
 }
 

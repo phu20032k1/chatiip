@@ -1,7 +1,48 @@
 // ⭐  Tự động bật news-mode nếu reload trực tiếp URL /news/slug
-if (location.pathname.startsWith("/news/") && !document.body.classList.contains("force-chat")) {
-    document.body.classList.add("news-mode");
+// ⭐ XỬ LÝ ROUTING KHI RELOAD TRANG NEWS - PHIÊN BẢN MỚI
+function handleNewsRouteOnLoad() {
+    const path = window.location.pathname;
+    console.log('🔍 Current path:', path);
+    
+    // Nếu đang ở trang news (ví dụ: /news/slug)
+    if (path.startsWith('/news/')) {
+        const slug = path.split('/news/')[1];
+        console.log('📰 Found news slug:', slug);
+        
+        // Đợi newsData được load từ server
+        const waitForNewsData = setInterval(() => {
+            if (newsData && newsData.length > 0) {
+                clearInterval(waitForNewsData);
+                
+                // Tìm bài viết có slug tương ứng
+                const newsIndex = newsData.findIndex(news => {
+                    const newsSlug = news.slug || `news-${news.id}`;
+                    return newsSlug === slug;
+                });
+                
+                console.log('🎯 Found news at index:', newsIndex);
+                
+                if (newsIndex !== -1) {
+                    // Mở bài viết tương ứng
+                    openNews(newsIndex);
+                } else {
+                    // Nếu không tìm thấy bài viết, quay về trang chủ
+                    console.log('❌ News not found, redirecting to home');
+                    window.history.replaceState({}, 'ChatIIP', '/');
+                    document.body.classList.remove('news-mode');
+                }
+            }
+        }, 100);
+        
+        // Timeout sau 5 giây
+        setTimeout(() => {
+            clearInterval(waitForNewsData);
+        }, 5000);
+    }
 }
+
+// Gọi hàm xử lý route khi load trang
+handleNewsRouteOnLoad();
 
 // ============================================================
 
@@ -611,122 +652,141 @@ loadNewsFromServer();
     }
 
     function openNews(index) {
-        const news = newsData[index];
-        if (!news) return;
+    const news = newsData[index];
+    if (!news) return;
 
-        newsReaderImage.src = news.img;
-        newsReaderTitle.textContent = news.title;
-        newsReaderSubtitle.textContent = news.subtitle;
-        newsReaderContent.innerHTML = news.content;
+    // Đảm bảo các element tồn tại trước khi sử dụng
+    if (newsReaderImage) newsReaderImage.src = news.img || "https://chatiip.com/default-og.jpg";
+    if (newsReaderTitle) newsReaderTitle.textContent = news.title || "Không có tiêu đề";
+    if (newsReaderSubtitle) newsReaderSubtitle.textContent = news.subtitle || "";
+    if (newsReaderContent) newsReaderContent.innerHTML = news.content || "<p>Nội dung đang cập nhật...</p>";
 
-        document.body.classList.add("news-mode");
+    // Thêm class news-mode để ẩn chat
+    document.body.classList.add("news-mode");
 
-        // ====================== SEO DYNAMIC ======================
-const slug = news.slug;
-const articleUrl = `https://chatiip.com/news/${slug}`;
+    // ====================== SEO DYNAMIC ======================
+    const slug = news.slug || `news-${news.id}`;
+    const articleUrl = `https://chatiip.com/news/${slug}`;
 
-document.title = `${news.title} - ChatIIP`;
+    // Cập nhật title
+    document.title = `${news.title} - ChatIIP`;
 
-// description (160 ký tự)
-const plainText = news.subtitle || news.content.replace(/<[^>]*>?/gm, "");
-const shortDesc = plainText.length > 160 ? plainText.slice(0,157) + "..." : plainText;
+    // Tạo mô tả
+    const plainText = (news.subtitle || news.content || "").replace(/<[^>]*>?/gm, "");
+    const shortDesc = plainText.length > 160 ? plainText.slice(0, 157) + "..." : plainText;
 
-// meta description
-document.getElementById("metaDescription").setAttribute("content", shortDesc);
+    // Cập nhật meta description
+    const metaDesc = document.getElementById("metaDescription");
+    if (metaDesc) metaDesc.setAttribute("content", shortDesc);
 
-// OG tags
-document.getElementById("ogTitle").setAttribute("content", news.title);
-document.getElementById("ogDescription").setAttribute("content", shortDesc);
-document.getElementById("ogImage").setAttribute("content", news.img);
-document.getElementById("ogUrl").setAttribute("content", articleUrl);
-function addMetaTag(property, content) {
-    let meta = document.createElement('meta');
-    meta.setAttribute('property', property);
-    meta.setAttribute('content', content);
-    document.head.appendChild(meta);
-}
+    // OG tags
+    const ogTitle = document.getElementById("ogTitle");
+    const ogDesc = document.getElementById("ogDescription");
+    const ogImage = document.getElementById("ogImage");
+    const ogUrl = document.getElementById("ogUrl");
+    
+    if (ogTitle) ogTitle.setAttribute("content", news.title);
+    if (ogDesc) ogDesc.setAttribute("content", shortDesc);
+    if (ogImage) ogImage.setAttribute("content", news.img || "https://chatiip.com/default-og.jpg");
+    if (ogUrl) ogUrl.setAttribute("content", articleUrl);
 
-addMetaTag('article:published_time', news.publishedAt);
-addMetaTag('article:modified_time', news.modifiedAt);
+    // Twitter tags
+    const twitterTitle = document.getElementById("twitterTitle");
+    const twitterDesc = document.getElementById("twitterDescription");
+    const twitterImage = document.getElementById("twitterImage");
+    
+    if (twitterTitle) twitterTitle.setAttribute("content", news.title);
+    if (twitterDesc) twitterDesc.setAttribute("content", shortDesc);
+    if (twitterImage) twitterImage.setAttribute("content", news.img || "https://chatiip.com/default-og.jpg");
 
-// Twitter
-document.getElementById("twitterTitle").setAttribute("content", news.title);
-document.getElementById("twitterDescription").setAttribute("content", shortDesc);
-document.getElementById("twitterImage").setAttribute("content", news.img);
+    // JSON-LD
+    const jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "NewsArticle",
+        "headline": news.title,
+        "description": shortDesc,
+        "image": [news.img || "https://chatiip.com/default-og.jpg"],
+        "author": {
+            "@type": "Organization",
+            "name": "ChatIIP"
+        },
+        "publisher": {
+            "@type": "Organization",
+            "name": "ChatIIP",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://chatiip.com/logo.png"
+            }
+        },
+        "datePublished": news.publishedAt || new Date().toISOString(),
+        "dateModified": news.modifiedAt || new Date().toISOString(),
+        "mainEntityOfPage": articleUrl
+    };
 
-// JSON-LD (Google News)
-const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "NewsArticle",
-    "headline": news.title,
-    "description": shortDesc,
-    "image": [news.img],
-    "author": {
-        "@type": "Organization",
-        "name": "ChatIIP"
-    },
-    "publisher": {
-        "@type": "Organization",
-        "name": "ChatIIP",
-        "logo": {
-            "@type": "ImageObject",
-            "url": "https://chatiip.com/logo.png"
-        }
-    },
-    "datePublished": news.publishedAt,
-    "dateModified": news.modifiedAt,
-    "mainEntityOfPage": articleUrl
-};
+    const seoJsonLd = document.getElementById("seoJsonLd");
+    if (seoJsonLd) seoJsonLd.textContent = JSON.stringify(jsonLd, null, 2);
 
-document.getElementById("seoJsonLd").textContent = JSON.stringify(jsonLd, null, 2);
-
-// URL đẹp
-window.history.pushState({}, news.title, `/news/${slug}`);
-
-
+    
+        // ⭐⭐ QUAN TRỌNG: SỬA pushState thành replaceState
+    window.history.replaceState({ 
+        newsIndex: index,
+        isNewsView: true 
+    }, news.title, `/news/${slug}`);
+    // Hiển thị news reader
+    if (newsReader) {
         newsReader.classList.add("open");
     }
+}
 
     if (newsBackBtn) {
-        newsBackBtn.addEventListener("click", () => {
-            newsReader.classList.remove("open");
-            // RESET SEO
-// Reset OG nâng cao
-document.querySelectorAll('meta[property="article:published_time"], meta[property="article:modified_time"]').forEach(tag => tag.remove());
-      
-document.title = "ChatIIP - Trợ lý AI & Tin tức";
+    newsBackBtn.addEventListener("click", () => {
+        if (newsReader) newsReader.classList.remove("open");
+        document.body.classList.remove("news-mode");
+        
+        // Reset SEO về mặc định
+        document.title = "ChatIIP - Trợ lý AI & Tin tức";
 
-document.getElementById("metaDescription").setAttribute("content",
-    "ChatIIP - Trợ lý AI, tin tức và tư vấn pháp luật.");
+        const resetMeta = (id, content) => {
+            const element = document.getElementById(id);
+            if (element) element.setAttribute("content", content);
+        };
 
-document.getElementById("ogTitle").setAttribute("content", "ChatIIP");
-document.getElementById("ogDescription").setAttribute("content",
-    "ChatIIP - Trợ lý AI, tin tức và tư vấn pháp luật.");
-document.getElementById("ogImage").setAttribute("content",
-    "https://chatiip.com/default-og.jpg");
-document.getElementById("ogUrl").setAttribute("content", "https://chatiip.com");
+        resetMeta("metaDescription", "ChatIIP - Trợ lý AI, tin tức và tư vấn pháp luật.");
+        resetMeta("ogTitle", "ChatIIP");
+        resetMeta("ogDescription", "ChatIIP - Trợ lý AI, tin tức và tư vấn pháp luật.");
+        resetMeta("ogImage", "https://chatiip.com/default-og.jpg");
+        resetMeta("ogUrl", "https://chatiip.com");
+        resetMeta("twitterTitle", "ChatIIP");
+        resetMeta("twitterDescription", "ChatIIP - Trợ lý AI, tin tức và tư vấn pháp luật.");
+        resetMeta("twitterImage", "https://chatiip.com/default-og.jpg");
 
-document.getElementById("twitterTitle").setAttribute("content", "ChatIIP");
-document.getElementById("twitterDescription").setAttribute("content",
-    "ChatIIP - Trợ lý AI, tin tức và tư vấn pháp luật.");
-document.getElementById("twitterImage").setAttribute("content",
-    "https://chatiip.com/default-og.jpg");
+        // Reset JSON-LD
+        const seoJsonLd = document.getElementById("seoJsonLd");
+        if (seoJsonLd) seoJsonLd.textContent = "";
 
-// reset JSON-LD
-document.getElementById("seoJsonLd").textContent = "";
-
-        });
-    }
+        // Reset URL
+           window.history.replaceState({}, "ChatIIP", "/");
+    });
+}
 
     if (newsBtn && newsBox) {
-        newsBtn.addEventListener("click", () => {
-            newsBox.classList.toggle("open");
-        });
-    }
+    newsBtn.addEventListener("click", () => {
+        newsBox.classList.toggle("open");
+    });
+}
 
-    if (newsData && newsData.length > 0) {
+// Chỉ render news nếu có dữ liệu và element tồn tại
+if (newsData && newsData.length > 0 && newsList) {
     renderNewsPage(1);
 }
+
+    // ⭐ XỬ LÝ BROWSER BACK/FORWARD BUTTONS
+    window.addEventListener('popstate', function(event) {
+        console.log('🔙 Popstate event:', event.state);
+        handleNewsRouteOnLoad(); // Gọi lại hàm xử lý route
+    });
+
+    
 });
 
 
