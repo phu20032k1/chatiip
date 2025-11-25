@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="ChatIIP, AI, chatbot, tin tức, luật lao động, hỏi đáp, trợ lý ảo">
+
 
     <title>ChatIIP</title>
+
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -46,48 +49,21 @@
     <meta name="twitter:description" content="ChatIIP - Trợ lý AI, tin tức và tư vấn luật lao động." id="twitterDescription">
     <meta name="twitter:image" content="https://chatiip.com/default-og.jpg" id="twitterImage">
 
-    <!-- JSON-LD -->
     <script type="application/ld+json" id="seoJsonLd"></script>
-
-    <!-- Website Schema -->
     <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": "ChatIIP",
-        "url": "https://chatiip.com",
-        "potentialAction": {
-            "@type": "SearchAction",
-            "target": "https://chatiip.com/search?q={search_term_string}",
-            "query-input": "required name=search_term_string"
-        }
-    }
-    </script>
+{
+ "@context": "https://schema.org",
+ "@type": "WebSite",
+ "name": "ChatIIP",
+ "url": "https://chatiip.com",
+ "potentialAction": {
+   "@type": "SearchAction",
+   "target": "https://chatiip.com/?q={search_term_string}",
+   "query-input": "required name=search_term_string"
+ }
+}
+</script>
 
-    <!-- Organization Schema -->
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": "ChatIIP",
-        "url": "https://chatiip.com",
-        "logo": "https://chatiip.com/logo.png",
-        "sameAs": [
-            "https://facebook.com/",
-            "https://youtube.com/"
-        ]
-    }
-    </script>
-
-    <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-9DLYZL4633"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-9DLYZL4633');
-        gtag('config', 'G-R5YNLSJQMZ');
-    </script>
 
 </head>
 
@@ -116,27 +92,6 @@
         </div>
     </div>
 
-    <!-- POPUP DANH SÁCH TIN -->
-    <div class="news-box" id="newsBox">
-        <div class="news-header">
-            <h3>Tin tức</h3>
-        </div>
-
-        <div class="news-list" id="newsList"></div>
-
-        <div class="news-pagination" id="newsPagination"></div>
-    </div>
-
-    <!-- TRANG ĐỌC TIN -->
-    <div class="news-reader" id="newsReader">
-        <button class="news-back-btn" id="newsBackBtn">◀ Quay lại</button>
-
-        <img id="newsReaderImage" class="news-reader-img">
-        <h2 id="newsReaderTitle"></h2>
-        <h4 id="newsReaderSubtitle"></h4>
-        <div id="newsReaderContent"></div>
-    </div>
-
     <!-- MAIN CONTAINER -->
     <div class="main-container">
 
@@ -149,40 +104,38 @@
         <div class="message-input-container centered" id="messageInputContainer">
             <div class="message-input-wrapper">
 
-    <!-- Nút + bên trái -->
-    <button class="input-button" id="fileButton">
-        <i class="fas fa-plus"></i>
-    </button>
+                <button class="input-button" id="fileButton">
+                    <i class="fas fa-plus"></i>
+                </button>
 
-    <!-- Ô nhập nội dung -->
-    <input
-        type="text"
-        class="message-input"
-        id="messageInput"
-        placeholder="Nhập câu hỏi ở đây..."
-    >
+                <input type="text" class="message-input" id="messageInput"
+                    placeholder="Nhập câu hỏi ở đây...">
 
-    <!-- Nút micro bên phải -->
-    <button class="input-button" id="voiceButton">
-        <i class="fas fa-microphone"></i>
-    </button>
+                <button class="input-button" id="voiceButton">
+                    <i class="fas fa-microphone"></i>
+                </button>
 
-    <!-- Nút gửi hình tròn đen -->
-    <button class="send-button" id="sendButton">
-        <i class="fas fa-arrow-up"></i>
-    </button>
+                <button class="send-button" id="sendButton">
+                    <i class="fas fa-arrow-up"></i>
+                </button>
 
-    <!-- Input file ẩn, JS vẫn dùng được -->
-    <input type="file" id="fileInput" multiple hidden>
+                <input type="file" id="fileInput" multiple hidden>
 
-</div>
-
+            </div>
         </div>
-
     </div>
 
     <!-- SCRIPT -->
     <script src="script.js"></script>
+
+    <!-- ⭐ HÀNH VI CHUYỂN SANG NEWS FULLPAGE -->
+    <script>
+        document.getElementById("newsBtn")?.addEventListener("click", () => {
+            window.location.href = "news.html";
+        });
+    </script>
+
+    
 
 </body>
 </html>

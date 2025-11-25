@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- 🌟 SEO Dynamic -->
+  <title id="pageTitle">Chuyên mục | ChatIIP</title>
+  <meta id="metaDesc" name="description" content="Danh sách bài viết theo chuyên mục">
+  <meta id="metaKeywords" name="keywords" content="">
+  <link id="canonicalLink" rel="canonical" href="">
+
+  <!-- OG TAGS -->
+  <meta property="og:title" id="ogTitle" content="">
+  <meta property="og:description" id="ogDescription" content="">
+  <meta property="og:image" id="ogImage" content="https://chatiip.com/default-og.jpg">
+  <meta property="og:url" id="ogUrl" content="">
+
+  <!-- JSON-LD -->
+  <script type="application/ld+json" id="jsonLD"></script>
+
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    body { background:#fff; padding:20px; font-family:system-ui; }
+    #catTitle { font-size:32px; font-weight:800; margin-bottom:20px; }
+    .cat-item {
+      padding:14px 0;
+      border-bottom:1px solid #e5e7eb;
+      cursor:pointer;
+    }
+    .cat-item-title { font-size:20px; font-weight:600; }
+    .cat-item:hover .cat-item-title { color:#2563eb; }
+    .empty { color:#666; padding:30px 0; }
+  </style>
+</head>
+
+<body>
+
+<h1 id="catTitle"></h1>
+<div id="catList"></div>
+
+<script>
+const API = "https://admin.chatiip.com/api/news";
+const params = new URLSearchParams(window.location.search);
+const category = params.get("cat");
+
+// 🌟 Capitalize first letter
+function capitalize(str) {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// 🌟 Update SEO
+function updateSEO() {
+  const title = `Chuyên mục: ${capitalize(category)} | ChatIIP`;
+  const desc = `Danh sách bài viết thuộc chuyên mục ${capitalize(category)} trên ChatIIP.`;
+  const url = `https://chatiip.com/category.html?cat=${category}`;
+
+  document.title = title;
+  document.getElementById("metaDesc").setAttribute("content", desc);
+  document.getElementById("metaKeywords").setAttribute("content", category);
+
+  document.getElementById("canonicalLink").setAttribute("href", url);
+  document.getElementById("ogTitle").setAttribute("content", title);
+  document.getElementById("ogDescription").setAttribute("content", desc);
+  document.getElementById("ogUrl").setAttribute("content", url);
+
+  document.getElementById("jsonLD").textContent = JSON.stringify({
+    "@context":"https://schema.org",
+    "@type":"CollectionPage",
+    "name":title,
+    "description":desc,
+    "url":url
+  }, null, 2);
+
+  document.getElementById("catTitle").textContent = capitalize(category);
+}
+
+updateSEO();
+
+// 🌟 Load articles by category
+async function loadCat() {
+  const res = await fetch(`${API}/category/${category}`);
+  const data = await res.json();
+  const box = document.getElementById("catList");
+
+  if (!data.length) {
+    box.innerHTML = "<p class='empty'>Chưa có bài viết nào trong chuyên mục này.</p>";
+    return;
+  }
+
+  data.forEach(n => {
+    const div = document.createElement("div");
+    div.className = "cat-item";
+    div.innerHTML = `
+      <div class="cat-item-title">${n.title}</div>
+      <div class="cat-item-desc">${n.subtitle || ""}</div>
+    `;
+    div.onclick = () => location.href=`article.html?slug=${n.slug}`;
+    box.appendChild(div);
+  });
+}
+
+loadCat();
+</script>
+
+</body>
+</html>

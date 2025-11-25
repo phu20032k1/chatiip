@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Tin tức | ChatIIP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- BASE SEO -->
+    <meta name="description" content="Tin tức mới nhất từ ChatIIP - cập nhật nhanh, chính xác và đầy đủ.">
+    <meta name="author" content="ChatIIP">
+
+    <!-- OpenGraph -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Tin tức | ChatIIP">
+    <meta property="og:description" content="Tin tức mới nhất từ ChatIIP - cập nhật nhanh, chính xác và đầy đủ.">
+    <meta property="og:image" content="https://chatiip.com/default-og.jpg">
+    <meta property="og:url" content="https://chatiip.com/news.html">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Tin tức | ChatIIP">
+    <meta name="twitter:description" content="Tin tức mới nhất từ ChatIIP">
+    <meta name="twitter:image" content="https://chatiip.com/default-og.jpg">
+
+    <!-- JSON-LD ItemList sẽ được news.js ghi nội dung -->
+    <script type="application/ld+json" id="newsJsonLd"></script>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="news.css">
+
+    <!-- ICON -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+<header class="news-header">
+    <div class="news-left">
+        <h1>Tin tức</h1>
+        <p>Cập nhật nhanh – Chính xác – Đầy đủ</p>
+    </div>
+
+    <div class="news-actions">
+        <!-- Ô tìm kiếm -->
+        <div class="news-search">
+            <i class="fa fa-search"></i>
+            <input id="searchInput" type="text" placeholder="Tìm bài viết...">
+        </div>
+
+        <!-- Bộ lọc -->
+        <select id="categoryFilter" class="news-filter">
+            <option value="">Tất cả</option>
+            <option value="Tin tức">Tin tức</option>
+            <option value="Thông báo">Thông báo</option>
+            <option value="Hướng dẫn">Hướng dẫn</option>
+            <option value="Công nghệ">Công nghệ</option>
+            <option value="Khác">Khác</option>
+        </select>
+
+        <a href="index.html" class="back-btn">← Chat</a>
+    </div>
+</header>
+
+
+<div class="news-container">
+    <!-- Bài nổi bật kiểu VNExpress -->
+    <section class="news-featured" id="featuredNews"></section>
+
+    <!-- Danh sách các bài còn lại -->
+    <section class="news-list" id="newsList"></section>
+</div>
+
+<script src="news.js"></script>
+
+</body>
+</html>
