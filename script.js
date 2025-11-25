@@ -728,7 +728,7 @@ loadNewsFromServer();
 
     
         // ⭐⭐ QUAN TRỌNG: SỬA pushState thành replaceState
-    window.history.replaceState({ 
+    window.history.pushState({ 
         newsIndex: index,
         isNewsView: true 
     }, news.title, `/news/${slug}`);
@@ -783,7 +783,8 @@ if (newsData && newsData.length > 0 && newsList) {
     // ⭐ XỬ LÝ BROWSER BACK/FORWARD BUTTONS
     window.addEventListener('popstate', function(event) {
         console.log('🔙 Popstate event:', event.state);
-        handleNewsRouteOnLoad(); // Gọi lại hàm xử lý route
+        handleNewsRouteOnLoad();
+         // Gọi lại hàm xử lý route
     });
 
     

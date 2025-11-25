@@ -690,11 +690,9 @@ body {
 
 
 
-/* ⭐ Ẩn giao diện chatbot khi ở trang tin tức */
 body.news-mode .main-container {
     opacity: 0;
     pointer-events: none;
-    position: absolute;
 }
 
 /* ⭐ Trang tin tức mở full width */
