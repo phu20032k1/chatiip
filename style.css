@@ -594,20 +594,16 @@ body {
 /*           NEWS READER          */
 /* ============================== */
 .news-reader {
-    position: fixed;
+    position: absolute;   /* QUAN TRỌNG: bỏ fixed */
     top: 0;
     right: -100%;
     width: 100%;
     max-width: 650px;
-    height: 100vh;
-    background: white;
-    border-left: 1px solid #e5e7eb;
-    padding: 20px;
-    overflow-y: auto;
-    transition: all 0.35s ease;
-    z-index: 400;
-    -webkit-overflow-scrolling: touch;
+    min-height: 100vh;    /* Cho phép nội dung dài */
+    height: auto;
+    overflow-y: visible;  /* Tránh scroll trong khung */
 }
+
 
 /* Đảm bảo news reader hiển thị đúng */
 .news-reader.open {
@@ -694,6 +690,12 @@ body.news-mode .main-container {
     opacity: 0;
     pointer-events: none;
 }
+
+
+body.news-mode {
+    overflow: auto !important;   /* tránh lock body */
+}
+
 
 /* ⭐ Trang tin tức mở full width */
 body.news-mode .news-reader {
