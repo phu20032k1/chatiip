@@ -108,6 +108,7 @@ function renderNewsItem(n) {
 
     <div class="news-text">
       <div class="news-title">${n.title}</div>
+      <div class="news-tag">${n.category || "Khác"}</div>
 
       <div class="news-subtitle">
         ${shortText(n.subtitle || "", 140)}
@@ -248,9 +249,15 @@ function applyFilters() {
   }
 
   // Lọc theo chuyên mục
-  if (category !== "") {
-    filtered = filtered.filter(n => n.category === category);
-  }
+  // Nếu chọn "Tất cả" thì không hiển thị gì
+if (category === "") {
+    renderFilteredList([]); 
+    return;
+}
+
+// Các category khác -> lọc bình thường
+filtered = filtered.filter(n => n.category === category);
+
 
   renderFilteredList(filtered);
 }
