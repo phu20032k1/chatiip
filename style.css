@@ -150,7 +150,12 @@ body {
     outline: none;
     background: transparent;
     font-size: 16px;
+    resize: none;         /* Không cho kéo thủ công */
+    overflow-y: hidden;   /* Tự mở rộng, chưa scroll */
+    max-height: 120px;    /* Sau 120px thì sẽ scroll */
+    line-height: 20px;
 }
+
 
 .send-button {
     background: #000000;

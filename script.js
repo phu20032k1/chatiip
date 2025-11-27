@@ -53,14 +53,13 @@ function jsonToIndustrialTableV2(data) {
             <td style="padding:10px; border-top:1px solid #e5e7eb;">${item.area}</td>
             <td style="padding:10px; border-top:1px solid #e5e7eb;">
                 <ul style="margin:0; padding-left:18px; list-style-type:disc;">
-                    ${
-                        (item.industry || "")
-                        .split(/[\n•;]/)
-                        .map(i => i.trim())
-                        .filter(i => i !== "")
-                        .map(i => `<li>${i}</li>`)
-                        .join("")
-                    }
+                    ${(item.industry || "")
+                .split(/[\n•;]/)
+                .map(i => i.trim())
+                .filter(i => i !== "")
+                .map(i => `<li>${i}</li>`)
+                .join("")
+            }
                 </ul>
             </td>
         </tr>`;
@@ -83,13 +82,13 @@ function jsonToIndustrialTableV2(data) {
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', function () {
-    
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+
+
     // =========================
     // DOM elements CHAT
     // =========================
@@ -111,6 +110,22 @@ document.addEventListener('DOMContentLoaded', function () {
             chatContainer.scrollTop = chatContainer.scrollHeight;
         });
     }
+
+    // ⭐ Auto expand textarea (tự mở rộng ô nhập tin nhắn)
+    messageInput.addEventListener("input", function () {
+        this.style.height = "auto";                // reset chiều cao -> giúp tính đúng
+        this.style.height = this.scrollHeight + "px";  // cao bằng đúng nội dung
+
+        // Nếu cao hơn 120px -> bật scroll để không vượt quá màn hình
+        if (this.scrollHeight > 120) {
+            this.style.overflowY = "scroll";
+        } else {
+            this.style.overflowY = "hidden";
+        }
+    });
+
+
+
 
     // trạng thái (duy trì tên biến cũ để tránh lỗi)
     let isRecording = false;
@@ -162,6 +177,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         addUserMessage(message);
         messageInput.value = '';
+
+
+        messageInput.style.height = "40px";
+        messageInput.style.overflowY = "hidden";
+
 
         showTypingIndicator();
 
@@ -227,48 +247,48 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const botMessageElement = document.createElement('div');
         botMessageElement.className = 'message bot-message';
-    let finalMessage = message;
+        let finalMessage = message;
 
-try {
-    let raw = message;
+        try {
+            let raw = message;
 
-    // B1: loại bỏ ký tự xuống dòng không hợp lệ
-    raw = raw.replace(/\n/g, "");
-    raw = raw.trim();
+            // B1: loại bỏ ký tự xuống dòng không hợp lệ
+            raw = raw.replace(/\n/g, "");
+            raw = raw.trim();
 
-    let parsed;
+            let parsed;
 
-    // B2: parse thử lần 1
-    try { parsed = JSON.parse(raw); } catch(e) {}
+            // B2: parse thử lần 1
+            try { parsed = JSON.parse(raw); } catch (e) { }
 
-    // B3: nếu vẫn là string → parse lần 2
-    if (parsed && typeof parsed === "string") {
-        try { parsed = JSON.parse(parsed); } catch(e) {}
-    }
+            // B3: nếu vẫn là string → parse lần 2
+            if (parsed && typeof parsed === "string") {
+                try { parsed = JSON.parse(parsed); } catch (e) { }
+            }
 
-    // B4: nếu vẫn là string → parse lần 3 (vì backend escape 3 lần)
-    if (parsed && typeof parsed === "string") {
-        try { parsed = JSON.parse(parsed); } catch(e) {}
-    }
+            // B4: nếu vẫn là string → parse lần 3 (vì backend escape 3 lần)
+            if (parsed && typeof parsed === "string") {
+                try { parsed = JSON.parse(parsed); } catch (e) { }
+            }
 
-    // B5: check object dạng { data: [...] }
-    if (parsed && typeof parsed === "object" && Array.isArray(parsed.data)) {
-        finalMessage = jsonToIndustrialTableV2(parsed.data);
-    }
+            // B5: check object dạng { data: [...] }
+            if (parsed && typeof parsed === "object" && Array.isArray(parsed.data)) {
+                finalMessage = jsonToIndustrialTableV2(parsed.data);
+            }
 
-    // B6: trả về array trực tiếp
-    else if (Array.isArray(parsed)) {
-        finalMessage = jsonToIndustrialTableV2(parsed);
-    }
+            // B6: trả về array trực tiếp
+            else if (Array.isArray(parsed)) {
+                finalMessage = jsonToIndustrialTableV2(parsed);
+            }
 
-} catch (err) {
-    console.log("JSON PARSE ERR", err);
-}
-
-
+        } catch (err) {
+            console.log("JSON PARSE ERR", err);
+        }
 
 
-botMessageElement.innerHTML = `
+
+
+        botMessageElement.innerHTML = `
     <div class="message-bubble bot-bubble">${finalMessage}</div>
 `;
 
@@ -298,8 +318,8 @@ botMessageElement.innerHTML = `
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
-        
-        
+
+
     }
 
     // ====================  TYPING INDICATOR  ====================
@@ -449,50 +469,50 @@ botMessageElement.innerHTML = `
 
 
     // ============================================================
-//                 HAMBURGER + NEW CHAT (IPHONE SAFE)
-// ============================================================
-const sidebar = document.getElementById("sidebar");
-const hamburgerBtn = document.getElementById("hamburgerBtn");
-const newChatBtn = document.getElementById("newChatBtn");
+    //                 HAMBURGER + NEW CHAT (IPHONE SAFE)
+    // ============================================================
+    const sidebar = document.getElementById("sidebar");
+    const hamburgerBtn = document.getElementById("hamburgerBtn");
+    const newChatBtn = document.getElementById("newChatBtn");
 
-if (hamburgerBtn && sidebar) {
-    hamburgerBtn.addEventListener("click", () => {
-        // Mở / đóng sidebar
-        sidebar.classList.toggle("open");
-        // Di chuyển nút hamburger bằng class (an toàn cho iPhone)
-        hamburgerBtn.classList.toggle("is-open");
-    });
-}
+    if (hamburgerBtn && sidebar) {
+        hamburgerBtn.addEventListener("click", () => {
+            // Mở / đóng sidebar
+            sidebar.classList.toggle("open");
+            // Di chuyển nút hamburger bằng class (an toàn cho iPhone)
+            hamburgerBtn.classList.toggle("is-open");
+        });
+    }
 
 
     if (newChatBtn) {
-    newChatBtn.addEventListener("click", () => {
-        // Xóa toàn bộ tin nhắn
-        const messages = chatContainer.querySelectorAll('.message');
-        messages.forEach(m => m.remove());
+        newChatBtn.addEventListener("click", () => {
+            // Xóa toàn bộ tin nhắn
+            const messages = chatContainer.querySelectorAll('.message');
+            messages.forEach(m => m.remove());
 
-        // Hiện lại welcome
-        if (welcomeMessage) {
-            welcomeMessage.style.display = 'block';
-            if (!chatContainer.contains(welcomeMessage)) {
-                chatContainer.insertBefore(welcomeMessage, chatContainer.firstChild);
+            // Hiện lại welcome
+            if (welcomeMessage) {
+                welcomeMessage.style.display = 'block';
+                if (!chatContainer.contains(welcomeMessage)) {
+                    chatContainer.insertBefore(welcomeMessage, chatContainer.firstChild);
+                }
             }
-        }
 
-        // Đưa input về trạng thái centered
-        messageInputContainer.classList.add('centered');
-        chatContainer.classList.remove('has-messages');
+            // Đưa input về trạng thái centered
+            messageInputContainer.classList.add('centered');
+            chatContainer.classList.remove('has-messages');
 
-        // Xóa text đang nhập
-        messageInput.value = "";
+            // Xóa text đang nhập
+            messageInput.value = "";
 
-        // ✅ THÊM 2 DÒNG NÀY VÀO:
-        // Đóng sidebar
-        if (sidebar) sidebar.classList.remove("open");
-        hamburgerBtn.classList.remove("is-open");
-        // ✅ XONG
-    });
-}
+            // ✅ THÊM 2 DÒNG NÀY VÀO:
+            // Đóng sidebar
+            if (sidebar) sidebar.classList.remove("open");
+            hamburgerBtn.classList.remove("is-open");
+            // ✅ XONG
+        });
+    }
 
     // ⭐ Nút Tin tức: chuyển sang trang tin fullpage
     const newsBtn = document.getElementById("newsBtn");
