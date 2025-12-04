@@ -77,16 +77,32 @@ function jsonToIndustrialTableV2(data) {
 
 
 
+  let speechLang = "vi-VN"; // mặc định
+    async function autoDetectSpeechLanguage() {
+        try {
+            const res = await fetch("https://ipapi.co/json/");
+            const data = await res.json();
+
+            if (data.country_code === "JP") speechLang = "ja-JP";
+            else if (data.country_code === "CN") speechLang = "zh-CN";
+            else if (data.country_code === "KR") speechLang = "ko-KR";
+            else speechLang = "vi-VN";
+
+            console.log("🎤 STT Language set to:", speechLang);
+        } catch (e) {
+            speechLang = "vi-VN";
+            console.warn("Could not detect country, default Vietnamese.");
+        }
+    }
+
+
 // ============================================================
 //  CHAT + VOICE + FILE + HAMBURGER + NEWS (FULL, KHÔNG LƯỢC)
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', function () {
 
-
-
-
-
+    autoDetectSpeechLanguage();
 
 
     // =========================
@@ -133,6 +149,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let recordingTime = 0;
 
     // Speech-to-Text (Web Speech API)
+
     let recognition = null;
 
     function initSpeechRecognition() {
@@ -143,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         recognition = new SpeechRecognition();
-        recognition.lang = 'vi-VN';
+        recognition.lang = speechLang;
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
 
@@ -523,3 +540,35 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
 });
+
+// =============================
+//  AUTO–LANGUAGE BY LOCATION
+// =============================
+async function autoDetectLanguage() {
+    try {
+        // API miễn phí
+        const res = await fetch("https://ipapi.co/json/");
+        const data = await res.json();
+        const country = data.country_code;
+
+        let lang = "vi"; // mặc định
+
+        if (country === "JP") lang = "ja";      // Nhật
+        if (country === "CN") lang = "zh";      // Trung
+        if (country === "KR") lang = "ko";      // Hàn
+        if (country === "TW") lang = "zh";      // Đài Loan (trung)
+
+        console.log("User country:", country, "→ set language:", lang);
+
+        // Thay đổi thuộc tính ngôn ngữ của trang
+        document.documentElement.lang = lang;
+
+        // OPTIONAL: Nếu bạn có file dịch → load file tương ứng
+        // loadLanguageFile(lang);
+    } catch (err) {
+        console.warn("Không xác định được vị trí, dùng tiếng Việt.");
+    }
+}
+
+// Gọi sau khi DOM load xong
+document.addEventListener("DOMContentLoaded", autoDetectLanguage);
