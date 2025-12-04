@@ -78,6 +78,35 @@ function jsonToIndustrialTableV2(data) {
 
 
   let speechLang = "vi-VN"; // mặc định
+  // ⭐ HÀM LOAD UI THEO NGÔN NGỮ
+async function loadLanguageUI(langCode) {
+    try {
+        const res = await fetch(`/lang/${langCode}.json`);
+        const dict = await res.json();
+
+        // Welcome text
+        const w = document.getElementById("welcomeMessageText");
+        if (w) w.innerText = dict.welcome;
+
+        // Placeholder input
+        const input = document.getElementById("messageInput");
+        if (input) input.placeholder = dict.placeholder;
+
+        // New chat button
+        const newChat = document.getElementById("newChatBtn");
+        if (newChat) newChat.innerHTML = `<i class="fas fa-plus"></i> ${dict.new_chat}`;
+
+    } catch (err) {
+        console.warn("Không thể tải file ngôn ngữ:", langCode, err);
+    }
+}
+
+
+
+
+
+
+
     async function autoDetectSpeechLanguage() {
         try {
             const res = await fetch("https://ipapi.co/json/");
@@ -562,6 +591,7 @@ async function autoDetectLanguage() {
 
         // Thay đổi thuộc tính ngôn ngữ của trang
         document.documentElement.lang = lang;
+        loadLanguageUI(lang);
 
         // OPTIONAL: Nếu bạn có file dịch → load file tương ứng
         // loadLanguageFile(lang);
