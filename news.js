@@ -11,10 +11,8 @@ let loadingMore = false;
 let noMore = false;
 
 // API backend
-const API =
-  window.location.hostname === "localhost"
-    ? "http://localhost:4000/api/news"
-    : "https://admin.chatiip.com/api/news";
+const API = "/api/news";
+
 
 const featuredEl = document.getElementById("featuredNews");
 const listEl = document.getElementById("newsList");
