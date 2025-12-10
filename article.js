@@ -1,8 +1,5 @@
 // news.js + article.js
-const API =
-  window.location.hostname === "localhost"
-    ? "http://localhost:4000/api/news"
-    : "https://admin.chatiip.com/api/news";
+fetch(`/api/news/${slug}`)
 
 
 // Lấy slug từ URL
