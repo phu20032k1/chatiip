@@ -1,5 +1,5 @@
-// news.js + article.js
-fetch(`/api/news/${slug}`)
+const API = "/api/news";
+
 
 
 // Lấy slug từ URL
