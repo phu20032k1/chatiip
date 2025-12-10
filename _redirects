@@ -1,0 +1,4 @@
+/admin/*      https://vietbaichatiip-production.up.railway.app/admin/:splat      200
+/api/*        https://vietbaichatiip-production.up.railway.app/api/:splat        200
+/rss.xml      https://vietbaichatiip-production.up.railway.app/rss.xml           200
+/sitemap.xml  https://vietbaichatiip-production.up.railway.app/sitemap.xml       200
