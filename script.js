@@ -77,8 +77,8 @@ function jsonToIndustrialTableV2(data) {
 
 
 
-  let speechLang = "vi-VN"; // mặc định
-  // ⭐ HÀM LOAD UI THEO NGÔN NGỮ
+let speechLang = "vi-VN"; // mặc định
+// ⭐ HÀM LOAD UI THEO NGÔN NGỮ
 async function loadLanguageUI(langCode) {
     try {
         const res = await fetch(`/lang/${langCode}.json`);
@@ -107,22 +107,22 @@ async function loadLanguageUI(langCode) {
 
 
 
-    async function autoDetectSpeechLanguage() {
-        try {
-            const res = await fetch("https://ipapi.co/json/");
-            const data = await res.json();
+async function autoDetectSpeechLanguage() {
+    try {
+        const res = await fetch("https://ipapi.co/json/");
+        const data = await res.json();
 
-            if (data.country_code === "JP") speechLang = "ja-JP";
-            else if (data.country_code === "CN") speechLang = "zh-CN";
-            else if (data.country_code === "KR") speechLang = "ko-KR";
-            else speechLang = "vi-VN";
+        if (data.country_code === "JP") speechLang = "ja-JP";
+        else if (data.country_code === "CN") speechLang = "zh-CN";
+        else if (data.country_code === "KR") speechLang = "ko-KR";
+        else speechLang = "vi-VN";
 
-            console.log("🎤 STT Language set to:", speechLang);
-        } catch (e) {
-            speechLang = "vi-VN";
-            console.warn("Could not detect country, default Vietnamese.");
-        }
+        console.log("🎤 STT Language set to:", speechLang);
+    } catch (e) {
+        speechLang = "vi-VN";
+        console.warn("Could not detect country, default Vietnamese.");
     }
+}
 
 
 // ============================================================
@@ -334,9 +334,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 
+        const isHTML = finalMessage.trim().startsWith("<");
+
         botMessageElement.innerHTML = `
-    <div class="message-bubble bot-bubble">${finalMessage}</div>
+    <div class="message-bubble bot-bubble">
+        ${isHTML ? finalMessage : formatMessage(finalMessage)}
+    </div>
 `;
+
 
         chatContainer.appendChild(botMessageElement);
 
