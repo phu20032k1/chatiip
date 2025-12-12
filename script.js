@@ -107,22 +107,6 @@ async function loadLanguageUI(langCode) {
 
 
 
-async function autoDetectSpeechLanguage() {
-    try {
-        const res = await fetch("https://ipapi.co/json/");
-        const data = await res.json();
-
-        if (data.country_code === "JP") speechLang = "ja-JP";
-        else if (data.country_code === "CN") speechLang = "zh-CN";
-        else if (data.country_code === "KR") speechLang = "ko-KR";
-        else speechLang = "vi-VN";
-
-        console.log("🎤 STT Language set to:", speechLang);
-    } catch (e) {
-        speechLang = "vi-VN";
-        console.warn("Could not detect country, default Vietnamese.");
-    }
-}
 
 
 // ============================================================
@@ -131,7 +115,7 @@ async function autoDetectSpeechLanguage() {
 
 document.addEventListener('DOMContentLoaded', function () {
 
-    autoDetectSpeechLanguage();
+
 
 
     // =========================
@@ -177,44 +161,11 @@ document.addEventListener('DOMContentLoaded', function () {
     let recordingTimer = null;
     let recordingTime = 0;
 
-    // Speech-to-Text (Web Speech API)
+    // Google STT (MediaRecorder)
+    let mediaRecorder = null;
+    let mediaStream = null;
+    let mediaChunks = [];
 
-    let recognition = null;
-
-    function initSpeechRecognition() {
-        if (recognition) return;
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            recognition = null;
-            return;
-        }
-        recognition = new SpeechRecognition();
-        recognition.lang = speechLang;
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-
-        recognition.onresult = (event) => {
-            try {
-                const transcript = event.results[0][0].transcript;
-                addUserMessage(`🎤 ${transcript}`);
-                sendTextToChatbot(transcript);
-            } catch (e) {
-                console.error('STT parse error', e);
-            }
-        };
-
-        recognition.onerror = () => {
-            addBotMessage('⚠️ Không nghe rõ. Vui lòng thử lại.');
-        };
-
-        recognition.onend = () => {
-            if (isRecording) {
-                isRecording = false;
-                voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
-                voiceButton.style.color = '';
-            }
-        };
-    }
 
     // ====================  GỬI TIN NHẮN VĂN BẢN  ====================
     function sendMessage() {
@@ -424,37 +375,124 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // ====================  SPEECH-TO-TEXT  ====================
-    function ensureSpeechSupport() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        return !!SpeechRecognition;
+
+
+    async function sendAudioToGoogleSTT(blob) {
+        try {
+            const fd = new FormData();
+            fd.append("audio", blob, "speech.webm");
+            fd.append("lang", speechLang);
+
+            const res = await fetch("https://chatiip-stt.fly.dev/stt", {
+                method: "POST",
+                body: fd
+            });
+
+            const data = await res.json();
+            return data.text || "";
+        } catch (e) {
+            console.error("STT network error:", e);
+            return "";
+        }
     }
 
-    function startSpeechToText() {
-        if (!ensureSpeechSupport()) {
-            alert('Trình duyệt của bạn không hỗ trợ Speech-to-Text. Vui lòng dùng Chrome/Edge.');
-            return;
-        }
 
-        initSpeechRecognition();
+    function showRecordingBubble() {
+        const messagesContainer =
+            document.querySelector(".chat-messages") ||
+            document.querySelector(".messages") ||
+            document.getElementById("chatMessages");
 
+        if (!messagesContainer) return;
+
+        if (document.getElementById("recordingBubble")) return;
+
+        const bubble = document.createElement("div");
+        bubble.id = "recordingBubble";
+        bubble.className = "message bot recording";
+        bubble.innerHTML = "🎧 Đang nghe...";
+
+        messagesContainer.appendChild(bubble);
+        bubble.scrollIntoView({ behavior: "smooth" });
+    }
+
+
+    function removeRecordingBubble() {
+        const bubble = document.getElementById("recordingBubble");
+        if (bubble) bubble.remove();
+    }
+
+
+    async function startSpeechToText() {
+
+        if (isRecording) return;
+        showRecordingBubble();
         try {
-            recognition.start();
+            mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            let mimeType = "audio/webm";
+
+            mediaChunks = [];
+            mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
+
+            mediaRecorder.ondataavailable = e => {
+                if (e.data && e.data.size > 0) mediaChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+
+                removeRecordingBubble();
+
+                const blob = new Blob(mediaChunks, { type: mimeType });
+
+                isRecording = false;
+                voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
+                voiceButton.style.color = "";
+
+                const text = await sendAudioToGoogleSTT(blob);
+
+                if (text) {
+                    addUserMessage(`🎤 ${text}`);
+                    sendTextToChatbot(text);
+                } else {
+                    addBotMessage("⚠️ Không nghe rõ, vui lòng thử lại.");
+                }
+
+                mediaStream.getTracks().forEach(t => t.stop());
+                mediaRecorder = null;
+                mediaChunks = [];
+
+                if (recordingTimer) {
+                    clearTimeout(recordingTimer);
+                    recordingTimer = null;
+                }
+
+            };
+
+            mediaRecorder.start();
+
+            recordingTimer = setTimeout(() => {
+                if (isRecording) stopSpeechToText();
+            }, 5000); // tự dừng sau 5 giây
+
             isRecording = true;
             voiceButton.innerHTML = '<i class="fas fa-stop"></i>';
-            voiceButton.style.color = '#dc2626';
-        } catch (e) { }
+            voiceButton.style.color = "#dc2626";
+
+        } catch (err) {
+            console.error(err);
+            addBotMessage("⚠️ Không truy cập được microphone.");
+        }
     }
 
+
     function stopSpeechToText() {
-        if (!recognition) return;
-        try {
-            recognition.stop();
-        } catch (e) { }
-        isRecording = false;
-        voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
-        voiceButton.style.color = '';
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+            mediaRecorder.stop();
+        }
     }
+
+
 
     voiceButton.addEventListener('click', function () {
         if (!isRecording) startSpeechToText();
@@ -486,21 +524,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (isRecording) stopSpeechToText();
     };
 
-    window.cancelRecording = function () {
-        if (isRecording) {
-            try { recognition.abort(); } catch (e) { }
-            isRecording = false;
-            voiceButton.innerHTML = '<i class="fas fa-microphone"></i>';
-            voiceButton.style.color = '';
-        }
-
-        const rec = document.getElementById('recordingBubble');
-        if (rec) rec.remove();
-    };
-
-    if (ensureSpeechSupport()) {
-        initSpeechRecognition();
-    }
 
     // ====================  HANDLE MOBILE RESIZE  ====================
     function handleMobileResize() {
@@ -575,35 +598,3 @@ document.addEventListener('DOMContentLoaded', function () {
 
 });
 
-// =============================
-//  AUTO–LANGUAGE BY LOCATION
-// =============================
-async function autoDetectLanguage() {
-    try {
-        // API miễn phí
-        const res = await fetch("https://ipapi.co/json/");
-        const data = await res.json();
-        const country = data.country_code;
-
-        let lang = "vi"; // mặc định
-
-        if (country === "JP") lang = "ja";      // Nhật
-        if (country === "CN") lang = "zh";      // Trung
-        if (country === "KR") lang = "ko";      // Hàn
-        if (country === "TW") lang = "zh";      // Đài Loan (trung)
-
-        console.log("User country:", country, "→ set language:", lang);
-
-        // Thay đổi thuộc tính ngôn ngữ của trang
-        document.documentElement.lang = lang;
-        loadLanguageUI(lang);
-
-        // OPTIONAL: Nếu bạn có file dịch → load file tương ứng
-        // loadLanguageFile(lang);
-    } catch (err) {
-        console.warn("Không xác định được vị trí, dùng tiếng Việt.");
-    }
-}
-
-// Gọi sau khi DOM load xong
-document.addEventListener("DOMContentLoaded", autoDetectLanguage);
