@@ -1,3 +1,43 @@
+
+// ====================  SESSION & USER ID & GOOGLE LOG  ====================
+function getSessionId() {
+    let sid = localStorage.getItem("chatiip_session_id");
+    if (!sid) {
+        sid = crypto.randomUUID
+            ? crypto.randomUUID()
+            : Date.now() + "_" + Math.random();
+        localStorage.setItem("chatiip_session_id", sid);
+    }
+    return sid;
+}
+
+function getUserId() {
+    return localStorage.getItem("chatiip_user_id") || "anonymous";
+}
+
+const GOOGLE_LOG_URL =
+    "https://script.google.com/macros/s/AKfycbzWxmyOvPhtj0ddQpl2G5S4NAV6SBEh6a8TXxi5j9jpbf3740E9lZqLk673Xqy1qE6yyA/exec";
+
+const GOOGLE_SECRET = "minhphu2003";
+
+async function logToGoogle(payload) {
+    try {
+        await fetch(GOOGLE_LOG_URL, {
+            method: "POST",
+            body: JSON.stringify({
+                token: GOOGLE_SECRET,
+                ...payload,
+                source: "chatiip_frontend",
+                user_agent: navigator.userAgent
+            })
+        });
+    } catch (e) {
+        console.error("Google log error", e);
+    }
+}
+
+
+
 // ⭐ jsonToIndustrialTableV2 giữ nguyên để render bảng từ JSON
 function jsonToIndustrialTableV2(data) {
     if (!Array.isArray(data) || data.length === 0) {
@@ -169,16 +209,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ====================  GỬI TIN NHẮN VĂN BẢN  ====================
     function sendMessage() {
+
         const message = messageInput.value.trim();
         if (!message) return;
+
+        const messageId = crypto.randomUUID
+            ? crypto.randomUUID()
+            : Date.now() + "_" + Math.random();
+
+        // ✅ LƯU CÂU HỎI SAU KHI ĐÃ CÓ message
+        logToGoogle({
+            message_id: messageId,
+            session_id: getSessionId(),
+            user_id: getUserId(),
+            question: message,
+            status: "asked"
+        });
 
         addUserMessage(message);
         messageInput.value = '';
 
-
         messageInput.style.height = "40px";
         messageInput.style.overflowY = "hidden";
-
 
         showTypingIndicator();
 
@@ -190,7 +242,18 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(res => res.json())
             .then(data => {
                 hideTypingIndicator();
-                addBotMessage(data.answer || data.reply || "No response.");
+                const answer = data.answer || data.reply || "No response.";
+                addBotMessage(answer);
+
+                // ✅ UPDATE ANSWER VÀO GOOGLE
+                logToGoogle({
+                    message_id: messageId,
+                    session_id: getSessionId(),
+                    user_id: getUserId(),
+                    question: message,
+                    answer: answer,
+                    status: "answered"
+                });
             })
             .catch(() => {
                 hideTypingIndicator();
@@ -198,10 +261,15 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
+
     sendButton.addEventListener('click', sendMessage);
-    messageInput.addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') sendMessage();
+    messageInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
     });
+
 
     // ====================  HIỂN THỊ TIN NHẮN NGƯỜI DÙNG  ====================
     function addUserMessage(message, files = []) {
@@ -503,6 +571,19 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!text.trim()) return;
 
         showTypingIndicator();
+
+        const messageId = crypto.randomUUID
+            ? crypto.randomUUID()
+            : Date.now() + "_" + Math.random();
+
+        logToGoogle({
+            message_id: messageId,
+            session_id: getSessionId(),
+            user_id: getUserId(),
+            question: text,
+            status: "asked"
+        });
+
 
         fetch("https://luat-lao-dong.onrender.com/chat", {
             method: "POST",
