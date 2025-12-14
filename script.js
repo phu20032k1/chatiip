@@ -16,7 +16,7 @@ function getUserId() {
 }
 
 const GOOGLE_LOG_URL =
-    "https://script.google.com/macros/s/AKfycbzWxmyOvPhtj0ddQpl2G5S4NAV6SBEh6a8TXxi5j9jpbf3740E9lZqLk673Xqy1qE6yyA/exec";
+    "https://script.google.com/macros/s/AKfycbz1RqVbn7j_7dUxmuAFuzUmBgJnqsJVIAYJzFjnovJraQyVEb193XI5lbp5l-33DB5cuA/exec";
 
 const GOOGLE_SECRET = "minhphu2003";
 
