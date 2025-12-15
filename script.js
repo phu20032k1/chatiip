@@ -560,6 +560,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    
 
 
     voiceButton.addEventListener('click', function () {
@@ -576,6 +577,7 @@ document.addEventListener('DOMContentLoaded', function () {
             ? crypto.randomUUID()
             : Date.now() + "_" + Math.random();
 
+        // log asked
         logToGoogle({
             message_id: messageId,
             session_id: getSessionId(),
@@ -583,7 +585,6 @@ document.addEventListener('DOMContentLoaded', function () {
             question: text,
             status: "asked"
         });
-
 
         fetch("https://luat-lao-dong.onrender.com/chat", {
             method: "POST",
@@ -593,13 +594,34 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(res => res.json())
             .then(data => {
                 hideTypingIndicator();
-                addBotMessage(data.answer || data.reply || "No response.");
+                const answer = data.answer || data.reply || "No response.";
+                addBotMessage(answer);
+
+                // ✅ log answered (điểm bạn đang thiếu)
+                logToGoogle({
+                    message_id: messageId,
+                    session_id: getSessionId(),
+                    user_id: getUserId(),
+                    question: text,
+                    answer: answer,
+                    status: "answered"
+                });
             })
             .catch(() => {
                 hideTypingIndicator();
                 addBotMessage("⚠️ Lỗi kết nối chatbot.");
+
+                // (tuỳ chọn) log fail
+                logToGoogle({
+                    message_id: messageId,
+                    session_id: getSessionId(),
+                    user_id: getUserId(),
+                    question: text,
+                    status: "failed"
+                });
             });
     }
+
 
     window.stopRecording = function () {
         if (isRecording) stopSpeechToText();
@@ -678,4 +700,3 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
 });
-
