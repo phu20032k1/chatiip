@@ -369,3 +369,194 @@ body {
 
 /* ⭐ GIỮ NGUYÊN news-item/news-thumb/news-text/news-title/news-subtitle  
    để fullpage news hoạt động bình thường */
+
+
+/* ========================= */
+/*        MESSAGE ACTIONS    */
+/* ========================= */
+
+.bot-stack{
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.message-actions{
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+    padding-left: 6px;
+}
+
+.action-btn{
+    position: relative;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    color: #6b7280;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.action-btn:hover{
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.action-btn.active{
+    color: #111827;
+    border-color: #cbd5e1;
+}
+
+.action-tooltip{
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #374151;
+    color: #ffffff;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 10;
+}
+
+.action-tooltip::after{
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #374151;
+}
+
+.action-btn:hover .action-tooltip,
+.action-btn.show-tooltip .action-tooltip{
+    opacity: 1;
+}
+
+/* ========================= */
+/*        FEEDBACK MODAL     */
+/* ========================= */
+
+.feedback-overlay{
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    padding: 16px;
+}
+
+.feedback-overlay.open{
+    display: flex;
+}
+
+.feedback-modal{
+    background: #ffffff;
+    width: min(760px, 100%);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.2);
+    position: relative;
+}
+
+.feedback-modal h3{
+    font-size: 22px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 14px;
+}
+
+.feedback-close{
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+}
+
+.feedback-close:hover{
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.feedback-chips{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.chip{
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    color: #111827;
+    padding: 10px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.chip.active{
+    background: #111827;
+    border-color: #111827;
+    color: #ffffff;
+}
+
+.feedback-label{
+    display: block;
+    font-size: 14px;
+    color: #6b7280;
+    margin: 8px 0 8px;
+}
+
+.feedback-textarea{
+    width: 100%;
+    min-height: 110px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 14px;
+    outline: none;
+    resize: vertical;
+}
+
+.feedback-textarea:focus{
+    border-color: #111827;
+}
+
+.feedback-submit{
+    margin-top: 12px;
+    float: right;
+    height: 44px;
+    padding: 0 18px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    background: #0ea5e9;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.feedback-submit:hover{
+    filter: brightness(0.96);
+}

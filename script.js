@@ -243,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 hideTypingIndicator();
                 const answer = data.answer || data.reply || "No response.";
-                addBotMessage(answer);
+                addBotMessage(answer, { messageId, question: message });
 
                 // ✅ UPDATE ANSWER VÀO GOOGLE
                 logToGoogle({
@@ -304,22 +304,24 @@ document.addEventListener('DOMContentLoaded', function () {
         setTimeout(scrollToBottom, 50);
     }
 
-    // ====================  HIỂN THỊ TIN NHẮN BOT  ====================
-    function addBotMessage(message) {
-        // ⭐ ĐẢM BẢO: Xóa class 'centered' khi bot trả lời
-        messageInputContainer.classList.remove('centered');
-        chatContainer.classList.add('has-messages');
+    // ====================  HIỂN THỊ TIN NHẮN BOT + ACTIONS  ====================
+    function renderActionButton(action, iconClass, tooltip) {
+        return `
+            <button class="action-btn" type="button" data-action="${action}" aria-label="${tooltip}">
+                <i class="${iconClass}"></i>
+                <span class="action-tooltip">${tooltip}</span>
+            </button>
+        `;
+    }
 
-        const botMessageElement = document.createElement('div');
-        botMessageElement.className = 'message bot-message';
-        let finalMessage = message;
+    function normalizeBotMessage(rawMessage) {
+        let finalMessage = rawMessage ?? "";
 
         try {
-            let raw = message;
+            let raw = String(rawMessage ?? "");
 
             // B1: loại bỏ ký tự xuống dòng không hợp lệ
-            raw = raw.replace(/\n/g, "");
-            raw = raw.trim();
+            raw = raw.replace(/\n/g, "").trim();
 
             let parsed;
 
@@ -331,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 try { parsed = JSON.parse(parsed); } catch (e) { }
             }
 
-            // B4: nếu vẫn là string → parse lần 3 (vì backend escape 3 lần)
+            // B4: nếu vẫn là string → parse lần 3
             if (parsed && typeof parsed === "string") {
                 try { parsed = JSON.parse(parsed); } catch (e) { }
             }
@@ -340,27 +342,50 @@ document.addEventListener('DOMContentLoaded', function () {
             if (parsed && typeof parsed === "object" && Array.isArray(parsed.data)) {
                 finalMessage = jsonToIndustrialTableV2(parsed.data);
             }
-
             // B6: trả về array trực tiếp
             else if (Array.isArray(parsed)) {
                 finalMessage = jsonToIndustrialTableV2(parsed);
+            } else {
+                finalMessage = rawMessage;
             }
 
         } catch (err) {
             console.log("JSON PARSE ERR", err);
+            finalMessage = rawMessage;
         }
 
+        const isHTML = String(finalMessage).trim().startsWith("<");
+        const html = isHTML ? String(finalMessage) : formatMessage(String(finalMessage));
 
+        return { finalMessage, html, isHTML };
+    }
 
+    function addBotMessage(message, meta = {}) {
+        const { messageId = "", question = "" } = meta || {};
 
-        const isHTML = finalMessage.trim().startsWith("<");
+        // ⭐ ĐẢM BẢO: Xóa class 'centered' khi bot trả lời
+        messageInputContainer.classList.remove('centered');
+        chatContainer.classList.add('has-messages');
+
+        const botMessageElement = document.createElement('div');
+        botMessageElement.className = 'message bot-message';
+
+        if (messageId) botMessageElement.dataset.messageId = messageId;
+        if (question) botMessageElement.dataset.question = question;
+
+        const normalized = normalizeBotMessage(message);
 
         botMessageElement.innerHTML = `
-    <div class="message-bubble bot-bubble">
-        ${isHTML ? finalMessage : formatMessage(finalMessage)}
-    </div>
-`;
-
+            <div class="bot-stack">
+                <div class="message-bubble bot-bubble">${normalized.html}</div>
+                <div class="message-actions">
+                    ${renderActionButton('like', 'fa-regular fa-thumbs-up', 'Đồng ý')}
+                    ${renderActionButton('dislike', 'fa-regular fa-thumbs-down', 'Không đồng ý')}
+                    ${renderActionButton('refresh', 'fa-solid fa-arrows-rotate', 'Trả lời lại')}
+                    ${renderActionButton('copy', 'fa-regular fa-copy', 'Sao chép')}
+                </div>
+            </div>
+        `;
 
         chatContainer.appendChild(botMessageElement);
 
@@ -420,6 +445,215 @@ document.addEventListener('DOMContentLoaded', function () {
             setTimeout(scrollToBottom, 50);
         }
     }
+
+
+
+    // ====================  ACTION BUTTONS (LIKE / DISLIKE / REFRESH / COPY)  ====================
+    const feedbackOverlay = document.getElementById('feedbackOverlay');
+    const feedbackCloseBtn = document.getElementById('feedbackCloseBtn');
+    const feedbackSubmitBtn = document.getElementById('feedbackSubmitBtn');
+    const feedbackChips = document.getElementById('feedbackChips');
+    const feedbackDetail = document.getElementById('feedbackDetail');
+
+    let activeFeedbackContext = null; // { messageId, question, answerText }
+    let selectedFeedbackReason = "";
+
+    function openFeedbackModal(ctx) {
+        if (!feedbackOverlay) return;
+
+        activeFeedbackContext = ctx;
+        selectedFeedbackReason = "";
+
+        // reset UI
+        feedbackOverlay.classList.add('open');
+        feedbackOverlay.setAttribute('aria-hidden', 'false');
+
+        feedbackChips?.querySelectorAll('.chip')?.forEach(c => c.classList.remove('active'));
+        if (feedbackDetail) feedbackDetail.value = "";
+    }
+
+    function closeFeedbackModal() {
+        if (!feedbackOverlay) return;
+        feedbackOverlay.classList.remove('open');
+        feedbackOverlay.setAttribute('aria-hidden', 'true');
+        activeFeedbackContext = null;
+        selectedFeedbackReason = "";
+    }
+
+    feedbackCloseBtn?.addEventListener('click', closeFeedbackModal);
+    feedbackOverlay?.addEventListener('click', (e) => {
+        // click outside modal
+        if (e.target === feedbackOverlay) closeFeedbackModal();
+    });
+
+    feedbackChips?.addEventListener('click', (e) => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        feedbackChips.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        selectedFeedbackReason = chip.dataset.reason || chip.innerText.trim();
+    });
+
+    feedbackSubmitBtn?.addEventListener('click', () => {
+        if (!activeFeedbackContext) return;
+
+        const detail = (feedbackDetail?.value || "").trim();
+
+        logToGoogle({
+            event: 'dislike_feedback',
+            message_id: activeFeedbackContext.messageId || "",
+            session_id: getSessionId(),
+            user_id: getUserId(),
+            question: activeFeedbackContext.question || "",
+            answer: activeFeedbackContext.answerText || "",
+            reaction: 'dislike',
+            feedback_reason: selectedFeedbackReason,
+            feedback_detail: detail,
+            status: 'submitted'
+        });
+
+        closeFeedbackModal();
+    });
+
+    function setReactionUI(botEl, reaction) {
+        const likeBtn = botEl.querySelector('.action-btn[data-action="like"]');
+        const dislikeBtn = botEl.querySelector('.action-btn[data-action="dislike"]');
+        if (likeBtn) likeBtn.classList.toggle('active', reaction === 'like');
+        if (dislikeBtn) dislikeBtn.classList.toggle('active', reaction === 'dislike');
+        botEl.dataset.reaction = reaction;
+    }
+
+    function showTempTooltip(btn, text, duration = 1200) {
+        const tip = btn.querySelector('.action-tooltip');
+        if (!tip) return;
+        const old = tip.textContent;
+        tip.textContent = text;
+        btn.classList.add('show-tooltip');
+        window.clearTimeout(btn._tooltipTimer);
+        btn._tooltipTimer = window.setTimeout(() => {
+            tip.textContent = old;
+            btn.classList.remove('show-tooltip');
+        }, duration);
+    }
+
+    async function regenerateAnswerFor(botEl) {
+        const question = botEl.dataset.question || "";
+        const messageId = botEl.dataset.messageId || "";
+        if (!question) return;
+
+        const bubble = botEl.querySelector('.message-bubble');
+        if (!bubble) return;
+
+        bubble.innerHTML = `
+            <span class="typing-dots">
+                <span></span><span></span><span></span>
+            </span>
+        `;
+
+        logToGoogle({
+            event: 'regenerate',
+            message_id: messageId,
+            session_id: getSessionId(),
+            user_id: getUserId(),
+            question,
+            status: 'requested'
+        });
+
+        try {
+            const res = await fetch('https://luat-lao-dong.onrender.com/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question })
+            });
+
+            const data = await res.json();
+            const answer = data.answer || data.reply || 'No response.';
+
+            const normalized = normalizeBotMessage(answer);
+            bubble.innerHTML = normalized.html;
+
+            logToGoogle({
+                event: 'regenerate',
+                message_id: messageId,
+                session_id: getSessionId(),
+                user_id: getUserId(),
+                question,
+                answer,
+                status: 'done'
+            });
+        } catch (e) {
+            bubble.innerHTML = '⚠️ Lỗi kết nối đến chatbot Render.';
+            logToGoogle({
+                event: 'regenerate',
+                message_id: messageId,
+                session_id: getSessionId(),
+                user_id: getUserId(),
+                question,
+                status: 'failed'
+            });
+        }
+    }
+
+    chatContainer.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.action-btn');
+        if (!btn) return;
+
+        const botEl = btn.closest('.bot-message');
+        if (!botEl) return;
+
+        const action = btn.dataset.action;
+        const messageId = botEl.dataset.messageId || "";
+        const question = botEl.dataset.question || "";
+        const bubble = botEl.querySelector('.message-bubble');
+        const answerText = bubble ? bubble.innerText.trim() : "";
+
+        if (action === 'copy') {
+            try {
+                await navigator.clipboard.writeText(answerText);
+                showTempTooltip(btn, 'Đã sao chép');
+
+                logToGoogle({
+                    event: 'copy',
+                    message_id: messageId,
+                    session_id: getSessionId(),
+                    user_id: getUserId(),
+                    question,
+                    status: 'done'
+                });
+            } catch (err) {
+                showTempTooltip(btn, 'Không thể sao chép');
+            }
+            return;
+        }
+
+        if (action === 'refresh') {
+            await regenerateAnswerFor(botEl);
+            return;
+        }
+
+        if (action === 'like' || action === 'dislike') {
+            const current = botEl.dataset.reaction || "";
+            if (current === action) return; // tránh double-click tăng lượt
+
+            setReactionUI(botEl, action);
+
+            logToGoogle({
+                event: 'reaction',
+                reaction: action,
+                message_id: messageId,
+                session_id: getSessionId(),
+                user_id: getUserId(),
+                question,
+                answer: answerText,
+                status: 'clicked'
+            });
+
+            if (action === 'dislike') {
+                openFeedbackModal({ messageId, question, answerText });
+            }
+            return;
+        }
+    });
 
     // ====================  FILE UPLOAD  ====================
     fileButton.addEventListener('click', function () {
@@ -595,7 +829,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 hideTypingIndicator();
                 const answer = data.answer || data.reply || "No response.";
-                addBotMessage(answer);
+                addBotMessage(answer, { messageId, question: text });
 
                 // ✅ log answered (điểm bạn đang thiếu)
                 logToGoogle({

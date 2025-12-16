@@ -146,6 +146,30 @@
         </div>
     </div>
 
+
+    <!-- FEEDBACK MODAL (DISLIKE) -->
+    <div class="feedback-overlay" id="feedbackOverlay" aria-hidden="true">
+        <div class="feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
+            <button class="feedback-close" id="feedbackCloseBtn" aria-label="Đóng">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <h3 id="feedbackTitle">Chia sẻ thêm ý kiến của bạn</h3>
+
+            <div class="feedback-chips" id="feedbackChips">
+                <button class="chip" type="button" data-reason="Không đáp ứng được nhu cầu/ không giải thích chi tiết">Không đáp ứng được nhu cầu/ không giải thích chi tiết</button>
+                <button class="chip" type="button" data-reason="Nội dung không đúng">Nội dung không đúng</button>
+                <button class="chip" type="button" data-reason="Không rõ ràng, cụ thể và khó hiểu">Không rõ ràng, cụ thể và khó hiểu</button>
+                <button class="chip" type="button" data-reason="Không đầy đủ thông tin">Không đầy đủ thông tin</button>
+            </div>
+
+            <label class="feedback-label" for="feedbackDetail">Cung cấp thêm thông tin</label>
+            <textarea id="feedbackDetail" class="feedback-textarea" placeholder="Thông tin cụ thể về vấn đề của bạn"></textarea>
+
+            <button class="feedback-submit" id="feedbackSubmitBtn" type="button">Gửi</button>
+        </div>
+    </div>
+
     <!-- SCRIPT -->
     <script src="script.js"></script>
 
