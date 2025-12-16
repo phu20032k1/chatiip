@@ -497,23 +497,29 @@ document.addEventListener('DOMContentLoaded', function () {
     feedbackSubmitBtn?.addEventListener('click', () => {
         if (!activeFeedbackContext) return;
 
+        if (!selectedFeedbackReason) {
+            alert("Vui lòng chọn lý do");
+            return;
+        }
+
         const detail = (feedbackDetail?.value || "").trim();
 
         logToGoogle({
-            event: 'dislike_feedback',
+            event: 'reaction',              // ✅ ĐỔI DÒNG NÀY
+            reaction: 'dislike',             // ✅ BẮT BUỘC
             message_id: activeFeedbackContext.messageId || "",
             session_id: getSessionId(),
             user_id: getUserId(),
             question: activeFeedbackContext.question || "",
             answer: activeFeedbackContext.answerText || "",
-            reaction: 'dislike',
-            feedback_reason: selectedFeedbackReason,
-            feedback_detail: detail,
-            status: 'submitted'
+
+            feedback_reason: selectedFeedbackReason, // ✅ CỘT reason
+            feedback_detail: detail                  // ✅ CỘT detail
         });
 
         closeFeedbackModal();
     });
+
 
     function setReactionUI(botEl, reaction) {
         const likeBtn = botEl.querySelector('.action-btn[data-action="like"]');
@@ -794,7 +800,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    
+
 
 
     voiceButton.addEventListener('click', function () {
