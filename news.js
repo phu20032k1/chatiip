@@ -207,8 +207,12 @@ async function loadNews() {
       return;
     }
 
-    // Sắp xếp mới nhất lên đầu
-    allNews.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+    // Sắp xếp mới nhất lên đầu (an toàn nếu thiếu publishedAt)
+    allNews.sort((a, b) => {
+      const tb = b && b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+      const ta = a && a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+      return tb - ta;
+    });
 
     // reset + render theo phân trang
     resetPagination(allNews);
@@ -247,14 +251,11 @@ function applyFilters() {
   }
 
   // Lọc theo chuyên mục
-  // Nếu chọn "Tất cả" thì không hiển thị gì
-if (category === "") {
-    renderFilteredList([]); 
-    return;
-}
-
-// Các category khác -> lọc bình thường
-filtered = filtered.filter(n => n.category === category);
+  // ✅ FIX: "Tất cả" (value="") phải hiển thị toàn bộ
+  if (category !== "") {
+    // ✅ FIX: nếu n.category bị thiếu -> coi như "Khác"
+    filtered = filtered.filter(n => (n.category || "Khác") === category);
+  }
 
 
   renderFilteredList(filtered);

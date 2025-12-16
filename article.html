@@ -191,9 +191,14 @@
 
     <!-- SHARE SCRIPT -->
     <script>
-        document.getElementById("copyLink").onclick = () => {
-            navigator.clipboard.writeText(window.location.href);
-            alert("Đã copy liên kết!");
+        document.getElementById("copyLink").onclick = async () => {
+            try {
+                await navigator.clipboard.writeText(window.location.href);
+                alert("Đã copy liên kết!");
+            } catch (e) {
+                // ✅ Fallback cho một số trình duyệt/ môi trường không cho dùng clipboard
+                prompt("Sao chép liên kết:", window.location.href);
+            }
         };
 
         document.getElementById("shareFb").onclick = () => {

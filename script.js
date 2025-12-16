@@ -3,7 +3,8 @@
 function getSessionId() {
     let sid = localStorage.getItem("chatiip_session_id");
     if (!sid) {
-        sid = crypto.randomUUID
+        // ✅ FIX: tránh lỗi ReferenceError nếu trình duyệt không có window.crypto
+        sid = (window.crypto && crypto.randomUUID)
             ? crypto.randomUUID()
             : Date.now() + "_" + Math.random();
         localStorage.setItem("chatiip_session_id", sid);
@@ -213,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const message = messageInput.value.trim();
         if (!message) return;
 
-        const messageId = crypto.randomUUID
+        const messageId = (window.crypto && crypto.randomUUID)
             ? crypto.randomUUID()
             : Date.now() + "_" + Math.random();
 
@@ -813,7 +814,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         showTypingIndicator();
 
-        const messageId = crypto.randomUUID
+        const messageId = (window.crypto && crypto.randomUUID)
             ? crypto.randomUUID()
             : Date.now() + "_" + Math.random();
 

@@ -3,6 +3,6 @@
 /api/*       https://vietbaichatiip-production.up.railway.app/api/:splat   200
 /auth/*      https://vietbaichatiip-production.up.railway.app/api/auth/:splat 200
 /news/*      https://vietbaichatiip-production.up.railway.app/api/news/:splat 200
+/uploads/*   https://vietbaichatiip-production.up.railway.app/uploads/:splat 200
 /rss.xml     https://vietbaichatiip-production.up.railway.app/rss.xml      200
 /sitemap.xml https://vietbaichatiip-production.up.railway.app/sitemap.xml  200
-

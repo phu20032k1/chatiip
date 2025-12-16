@@ -31,9 +31,11 @@ function showSkeleton() {
 // ===============================
 function updateSEO(item) {
     const title = item.pageTitle || item.title;
-    const desc = item.pageDescription 
-        || item.subtitle 
-        || item.content.replace(/<[^>]*>?/gm, "").slice(0, 160);
+    // ✅ FIX: tránh lỗi nếu item.content bị null/undefined
+    const plain = (item.content || "").replace(/<[^>]*>?/gm, "");
+    const desc = item.pageDescription
+        || item.subtitle
+        || plain.slice(0, 160);
     const keywords = item.pageKeywords || "";
     const img = item.ogImage || item.img || "https://chatiip.com/default-og.jpg";
     const url = item.canonical || `https://chatiip.com/article.html?slug=${item.slug}`;

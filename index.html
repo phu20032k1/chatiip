@@ -123,6 +123,11 @@
             <button class="menu-item" id="newChatBtn">
                 <i class="fas fa-plus"></i> Đoạn chat mới
             </button>
+
+            <!-- ✅ Tra cứu văn bản pháp luật -->
+            <button class="menu-item" id="lawsBtn">
+                <i class="fas fa-scale-balanced"></i> Văn bản pháp luật
+            </button>
         </div>
     </div>
 
@@ -195,6 +200,13 @@
     <script>
         document.getElementById("newsBtn")?.addEventListener("click", () => {
             window.location.href = "news.html";
+        });
+    </script>
+
+    <!-- ✅ Chuyển sang trang tra cứu văn bản -->
+    <script>
+        document.getElementById("lawsBtn")?.addEventListener("click", () => {
+            window.location.href = "laws.html";
         });
     </script>
 

@@ -41,7 +41,9 @@
 <div id="catList"></div>
 
 <script>
-const API = "https://admin.chatiip.com/api/news";
+// ✅ Dùng API tương đối để chạy được trên Netlify (kết hợp _redirects)
+// Backend sẽ được proxy thông qua /api/*
+const API = "/api/news";
 const params = new URLSearchParams(window.location.search);
 const category = params.get("cat");
 
@@ -81,7 +83,11 @@ updateSEO();
 
 // 🌟 Load articles by category
 async function loadCat() {
-  const res = await fetch(`${API}/category/${category}`);
+  if (!category) {
+    document.getElementById("catList").innerHTML = "<p class='empty'>❌ Thiếu chuyên mục.</p>";
+    return;
+  }
+  const res = await fetch(`${API}/category/${encodeURIComponent(category)}`);
   const data = await res.json();
   const box = document.getElementById("catList");
 
