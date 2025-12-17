@@ -155,9 +155,25 @@
     }
   }
 
-  function injectAuthUI() {
+  // Decide whether to show the top auth bar (Đăng nhập/Đăng ký).
+// We only show it on the chat page to avoid cluttering public pages (news/laws/doc/...).
+function shouldShowAuthBar() {
+  const page = document.body?.dataset?.page || "";
+  if (page) return page === "chat"; // explicit override via <body data-page="...">
+  // Fallback (in case data-page is missing): detect chat layout markers
+  return !!(document.getElementById("chatContainer")
+    || document.getElementById("messageInputContainer")
+    || document.querySelector(".chat-container"));
+}
+
+function injectAuthUI() {
+    const showTopBar = shouldShowAuthBar();
+    if (!showTopBar) {
+      const oldBar = document.getElementById("authBar");
+      if (oldBar) oldBar.remove();
+    }
     // Auth bar (top center)
-    if (!document.getElementById("authBar")) {
+    if (showTopBar && !document.getElementById("authBar")) {
       const bar = document.createElement("div");
       bar.id = "authBar";
       bar.className = "auth-bar";
