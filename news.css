@@ -9,6 +9,11 @@ body {
     padding-bottom: 40px;
 }
 
+.auth-bar {
+  display: none !important;
+}
+
+
 /* HEADER TRANG TIN */
 .news-header {
     display: flex;

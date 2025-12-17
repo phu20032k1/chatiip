@@ -8,6 +8,11 @@ body {
   color: #111827;
 }
 
+.auth-bar {
+  display: none !important;
+}
+
+
 .doc-header {
   position: sticky;
   top: 0;

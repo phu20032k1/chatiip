@@ -9,6 +9,11 @@ body {
   color: #111827;
 }
 
+.auth-bar {
+  display: none !important;
+}
+
+
 .laws-header {
   position: sticky;
   top: 0;
