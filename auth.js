@@ -8,6 +8,9 @@
 
 (function () {
   const STORAGE_CURRENT = "chatiip_current_user";
+  // Access token (JWT) do backend trả về khi login/register
+  const STORAGE_TOKEN = "chatiip_access_token";
+  // Legacy (demo) - giữ lại để không phá vỡ dữ liệu cũ, nhưng không dùng nữa
   const STORAGE_USERS = "chatiip_users";
   const STORAGE_THEME = "chatiip_theme"; // 'light' | 'dark'
   const STORAGE_SETTINGS = "chatiip_settings"; // { notifications: boolean }
@@ -37,13 +40,53 @@
     return Date.now() + "_" + Math.random().toString(16).slice(2);
   }
 
-  // NOTE: demo only (NOT secure)
-  function pwHash(pw) {
+  // ---------------- Backend auth helpers ----------------
+  // Thông qua Netlify/_redirects:
+  //  - /auth/*  -> BACKEND /api/auth/*
+  // Vì vậy FE chỉ cần gọi /auth/...
+  const AUTH_BASE = "/auth";
+
+  function getToken() {
     try {
-      return btoa(unescape(encodeURIComponent(pw)));
+      return localStorage.getItem(STORAGE_TOKEN) || "";
     } catch {
-      return pw;
+      return "";
     }
+  }
+
+  function setToken(token) {
+    try {
+      if (token) localStorage.setItem(STORAGE_TOKEN, token);
+      else localStorage.removeItem(STORAGE_TOKEN);
+    } catch {
+      // ignore
+    }
+  }
+
+  async function apiAuth(path, { method = "GET", body, auth = true } = {}) {
+    const headers = { "Content-Type": "application/json" };
+    const token = getToken();
+    if (auth && token) headers.Authorization = `Bearer ${token}`;
+
+    const res = await fetch(`${AUTH_BASE}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: "include"
+    });
+
+    const text = await res.text().catch(() => "");
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    if (!res.ok) {
+      const msg = (data && data.message) || (typeof data === "string" && data) || `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return data;
   }
 
   function getCurrentUser() {
@@ -526,105 +569,86 @@ function injectAuthUI() {
   }
 
   // --------------- Auth actions ----------------
-  function handleRegister(name, email, password) {
-    const users = getUsers();
+  async function handleRegister(name, email, password) {
     const normalizedEmail = (email || "").trim().toLowerCase();
-
-    if (!name.trim()) {
-      showToast("Vui lòng nhập họ & tên.", "error");
-      return;
-    }
-
     if (!normalizedEmail) {
       showToast("Vui lòng nhập email hợp lệ.", "error");
       return;
     }
-
     if ((password || "").length < 6) {
       showToast("Mật khẩu tối thiểu 6 ký tự.", "error");
       return;
     }
 
-    const exists = users.some((u) => (u.email || "").toLowerCase() === normalizedEmail);
-    if (exists) {
-      showToast("Email này đã được đăng ký. Hãy đăng nhập nhé!", "error");
-      return;
+    try {
+      const data = await apiAuth("/register", {
+        method: "POST",
+        auth: false,
+        body: { name: (name || "").trim(), email: normalizedEmail, password }
+      });
+
+      if (data?.token) setToken(data.token);
+      const u = data?.user;
+      // backend trả: { id, name, email, role }
+      setCurrentUser({
+        id: u?.id || "anonymous",
+        name: u?.name || "",
+        email: u?.email || normalizedEmail,
+        role: u?.role || "user",
+        provider: "password"
+      });
+
+      showToast(`Tạo tài khoản thành công! Xin chào ${u?.name || normalizedEmail}.`, "success");
+      closeOverlay("authOverlay");
+      syncAllUI();
+    } catch (e) {
+      showToast(`Đăng ký thất bại: ${e.message}`, "error");
     }
-
-    const user = {
-      id: "u_" + uuid(),
-      name: name.trim(),
-      email: normalizedEmail,
-      provider: "password",
-      password_hash: pwHash(password),
-      createdAt: new Date().toISOString(),
-    };
-
-    users.push(user);
-    setUsers(users);
-
-    // auto login
-    const sessionUser = { id: user.id, name: user.name, email: user.email, provider: user.provider };
-    setCurrentUser(sessionUser);
-
-    showToast(`Tạo tài khoản thành công! Xin chào ${sessionUser.name}.`, "success");
-    closeOverlay("authOverlay");
-    syncAllUI();
   }
 
-  function handleLogin(email, password) {
-    const users = getUsers();
+  async function handleLogin(email, password) {
     const normalizedEmail = (email || "").trim().toLowerCase();
-
     if (!normalizedEmail) {
       showToast("Vui lòng nhập email.", "error");
       return;
     }
 
-    const user = users.find((u) => (u.email || "").toLowerCase() === normalizedEmail);
-    if (!user) {
-      showToast("Không tìm thấy tài khoản. Hãy đăng ký trước nhé!", "error");
-      return;
+    try {
+      const data = await apiAuth("/login", {
+        method: "POST",
+        auth: false,
+        body: { email: normalizedEmail, password }
+      });
+
+      if (data?.token) setToken(data.token);
+      const u = data?.user;
+      setCurrentUser({
+        id: u?.id || "anonymous",
+        name: u?.name || "",
+        email: u?.email || normalizedEmail,
+        role: u?.role || "user",
+        provider: "password"
+      });
+
+      showToast(`Đăng nhập thành công! Xin chào ${u?.name || normalizedEmail}.`, "success");
+      closeOverlay("authOverlay");
+      syncAllUI();
+    } catch (e) {
+      showToast(`Đăng nhập thất bại: ${e.message}`, "error");
     }
-
-    if (user.provider === "password") {
-      if (pwHash(password || "") !== user.password_hash) {
-        showToast("Sai mật khẩu. Vui lòng thử lại.", "error");
-        return;
-      }
-    }
-
-    const sessionUser = { id: user.id, name: user.name, email: user.email, provider: user.provider };
-    setCurrentUser(sessionUser);
-
-    showToast(`Đăng nhập thành công! Xin chào ${sessionUser.name}.`, "success");
-    closeOverlay("authOverlay");
-    syncAllUI();
   }
 
   function handleSocial(provider) {
-    const users = getUsers();
-    const id = provider + "_" + uuid();
-    const name = provider === "google" ? "Google User" : "Facebook User";
-    const email = `${id}@${provider}.demo`;
-
-    const user = { id: "u_" + id, name, email, provider, createdAt: new Date().toISOString() };
-
-    // store if not exists (by email)
-    if (!users.some((u) => (u.email || "").toLowerCase() === email.toLowerCase())) {
-      users.push(user);
-      setUsers(users);
-    }
-
-    const sessionUser = { id: user.id, name: user.name, email: user.email, provider: user.provider };
-    setCurrentUser(sessionUser);
-
-    showToast(`Đăng nhập thành công bằng ${provider === "google" ? "Google" : "Facebook"}!`, "success");
-    closeOverlay("authOverlay");
-    syncAllUI();
+    showToast(`Hiện chưa hỗ trợ đăng nhập bằng ${provider === "google" ? "Google" : "Facebook"}.`, "info");
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await apiAuth("/logout", { method: "POST" });
+    } catch {
+      // ignore
+    }
+    setToken("");
     clearCurrentUser();
     showToast("Bạn đã đăng xuất.", "info");
     closeOverlay("accountOverlay");
@@ -769,6 +793,30 @@ function injectAuthUI() {
   }
 
   // --------------- Boot ----------------
+  async function hydrateSessionFromBackend() {
+    // Nếu có token (hoặc cookie) thì thử gọi /me để lấy user thật
+    try {
+      const hasToken = !!getToken();
+      // Nếu không có token thì vẫn có thể có cookie (admin.chatiip.com...), cứ thử một lần.
+      const me = await apiAuth("/me", { method: "GET", auth: hasToken });
+      if (me && me.user) {
+        setCurrentUser({
+          id: me.user.id,
+          name: me.user.name || "",
+          email: me.user.email,
+          role: me.user.role || "user",
+          provider: "password"
+        });
+        syncAllUI();
+      }
+    } catch {
+      // Token/cookie không hợp lệ → clear
+      setToken("");
+      clearCurrentUser();
+      syncAllUI();
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     injectAuthUI();
     adjustAuthBarPosition();
@@ -776,5 +824,6 @@ function injectAuthUI() {
     initThemeFromStorage();
     wireEvents();
     syncAllUI();
+    hydrateSessionFromBackend();
   });
 })();

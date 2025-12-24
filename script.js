@@ -209,6 +209,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     // ====================  GỬI TIN NHẮN VĂN BẢN  ====================
+    function getAccessToken() {
+        try { return localStorage.getItem('chatiip_access_token') || ''; } catch { return ''; }
+    }
+
+    async function callChatAPI(question) {
+        const token = getAccessToken();
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch("/api/chat", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ question })
+        });
+
+        if (!res.ok) {
+            const t = await res.text().catch(() => "");
+            throw new Error(t || `HTTP ${res.status}`);
+        }
+        return res.json();
+    }
+
     function sendMessage() {
 
         const message = messageInput.value.trim();
@@ -235,16 +257,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         showTypingIndicator();
 
-        fetch("https://luat-lao-dong.onrender.com/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question: message })
-        })
-            .then(res => res.json())
+        callChatAPI(message)
             .then(data => {
                 hideTypingIndicator();
                 const answer = data.answer || data.reply || "No response.";
-                addBotMessage(answer, { messageId, question: message });
+                const citations = Array.isArray(data.citations) ? data.citations : [];
+                addBotMessage(answer, { messageId, question: message, citations });
 
                 // ✅ UPDATE ANSWER VÀO GOOGLE
                 logToGoogle({
@@ -258,7 +276,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .catch(() => {
                 hideTypingIndicator();
-                addBotMessage("⚠️ Lỗi kết nối đến chatbot Render.");
+                addBotMessage("⚠️ Lỗi kết nối đến chatbot.");
             });
     }
 
@@ -361,8 +379,39 @@ document.addEventListener('DOMContentLoaded', function () {
         return { finalMessage, html, isHTML };
     }
 
+    function renderCitations(citations = []) {
+        if (!Array.isArray(citations) || citations.length === 0) return "";
+
+        const items = citations.map((c) => {
+            const title = escapeHtml(c.title || c.soHieu || 'Nguồn');
+            const so = c.soHieu ? ` <span class="cite-so">${escapeHtml(c.soHieu)}</span>` : "";
+            const status = c.tinhTrang ? ` <span class="cite-status">${escapeHtml(c.tinhTrang)}</span>` : "";
+            const excerpt = c.excerpt ? `<div class="cite-excerpt">${escapeHtml(c.excerpt)}</div>` : "";
+            const url = c.url || "";
+            const btn = url
+                ? `<a class="cite-open" href="${url}" target="_blank" rel="noopener noreferrer">Mở nguồn</a>`
+                : `<span class="cite-open disabled">Không có link</span>`;
+            return `
+                <div class="cite-item">
+                    <div class="cite-top">
+                        <div class="cite-title">${title}${so}${status}</div>
+                        ${btn}
+                    </div>
+                    ${excerpt}
+                </div>
+            `;
+        }).join("");
+
+        return `
+            <div class="citations">
+                <div class="citations-head">Trích dẫn nguồn</div>
+                ${items}
+            </div>
+        `;
+    }
+
     function addBotMessage(message, meta = {}) {
-        const { messageId = "", question = "" } = meta || {};
+        const { messageId = "", question = "", citations = [] } = meta || {};
 
         // ⭐ ĐẢM BẢO: Xóa class 'centered' khi bot trả lời
         messageInputContainer.classList.remove('centered');
@@ -379,6 +428,7 @@ document.addEventListener('DOMContentLoaded', function () {
         botMessageElement.innerHTML = `
             <div class="bot-stack">
                 <div class="message-bubble bot-bubble">${normalized.html}</div>
+                ${renderCitations(citations)}
                 <div class="message-actions">
                     ${renderActionButton('like', 'fa-regular fa-thumbs-up', 'Đồng ý')}
                     ${renderActionButton('dislike', 'fa-regular fa-thumbs-down', 'Không đồng ý')}
@@ -567,17 +617,20 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         try {
-            const res = await fetch('https://luat-lao-dong.onrender.com/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question })
-            });
-
-            const data = await res.json();
+            const data = await callChatAPI(question);
             const answer = data.answer || data.reply || 'No response.';
+            const citations = Array.isArray(data.citations) ? data.citations : [];
 
             const normalized = normalizeBotMessage(answer);
             bubble.innerHTML = normalized.html;
+
+            // update citations block (replace if exists)
+            const oldCite = botEl.querySelector('.citations');
+            if (oldCite) oldCite.remove();
+            const actions = botEl.querySelector('.message-actions');
+            if (actions) {
+                actions.insertAdjacentHTML('beforebegin', renderCitations(citations));
+            }
 
             logToGoogle({
                 event: 'regenerate',
@@ -827,16 +880,12 @@ document.addEventListener('DOMContentLoaded', function () {
             status: "asked"
         });
 
-        fetch("https://luat-lao-dong.onrender.com/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question: text })
-        })
-            .then(res => res.json())
+        callChatAPI(text)
             .then(data => {
                 hideTypingIndicator();
                 const answer = data.answer || data.reply || "No response.";
-                addBotMessage(answer, { messageId, question: text });
+                const citations = Array.isArray(data.citations) ? data.citations : [];
+                addBotMessage(answer, { messageId, question: text, citations });
 
                 // ✅ log answered (điểm bạn đang thiếu)
                 logToGoogle({
