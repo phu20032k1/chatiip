@@ -309,7 +309,9 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 hideTypingIndicator();
                 const answer = data.answer || data.reply || "No response.";
-                addBotMessage(answer, { messageId, question: message });
+                const botEl = addBotMessage(answer, { messageId, question: message });
+
+                handleExcelVisualizeResponse(data, botEl);
 
                 // ✅ UPDATE ANSWER VÀO GOOGLE
                 logToGoogle({
@@ -471,10 +473,218 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
         `;
 
+
         chatContainer.appendChild(botMessageElement);
 
         // ⭐ Auto scroll
         setTimeout(scrollToBottom, 50);
+
+        // ⭐ Return element để có thể gắn chart/table vào đúng message
+        return botMessageElement;
+    }
+
+    // ====================  EXCEL VISUALIZE (CHART/TABLE)  ====================
+    function extractExcelVisualize(data) {
+        if (!data || typeof data !== "object") return null;
+
+        // Server đôi khi trả { type: "excel_visualize", payload: { type: "excel_visualize_price", ... } }
+        const payload = (data.payload && typeof data.payload === "object") ? data.payload : null;
+
+        const topType = data.type ? String(data.type) : "";
+        const payloadType = payload?.type ? String(payload.type) : "";
+
+        const looksLikeExcelViz =
+            topType.includes("excel_visualize") ||
+            payloadType.includes("excel_visualize");
+
+        if (!looksLikeExcelViz) return null;
+
+        // chart_base64 có thể nằm ở top-level hoặc trong payload
+        const chartBase64 =
+            (typeof data.chart_base64 === "string" && data.chart_base64.trim()) ? data.chart_base64.trim() :
+            (typeof payload?.chart_base64 === "string" && payload.chart_base64.trim()) ? payload.chart_base64.trim() :
+            "";
+
+        const items = Array.isArray(payload?.items) ? payload.items : (Array.isArray(data.items) ? data.items : []);
+
+        return {
+            type: payloadType || topType,
+            province: payload?.province || data.province || "",
+            industrial_type: payload?.industrial_type || data.industrial_type || "",
+            items,
+            chart_base64: chartBase64
+        };
+    }
+
+    function parsePriceNumber(priceStr) {
+        const s = String(priceStr ?? "");
+        // lấy số đầu tiên (110, 120, 65...)
+        const m = s.replace(/,/g, ".").match(/(\d+(?:\.\d+)?)/);
+        return m ? Number(m[1]) : NaN;
+    }
+
+    function buildPriceTable(items) {
+        const block = document.createElement("div");
+        block.className = "data-block";
+
+        const rows = (items || []).map((it, idx) => {
+            const name = escapeHtmlGlobal(it?.name ?? it?.ten ?? it?.Tên ?? "");
+            const price = escapeHtmlGlobal(it?.price ?? it?.gia ?? it?.Giá ?? "");
+            return `
+              <tr>
+                <td class="col-stt">${idx + 1}</td>
+                <td>${name}</td>
+                <td class="col-area">${price}</td>
+              </tr>
+            `;
+        }).join("");
+
+        block.innerHTML = `
+          <div class="data-block-toolbar">
+            <div class="data-block-title">Dữ liệu so sánh giá</div>
+          </div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="col-stt">#</th>
+                  <th>Khu công nghiệp</th>
+                  <th class="col-area">Giá</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows || `<tr><td colspan="3">Không có dữ liệu.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        `;
+        return block;
+    }
+
+    function buildBarChart(items, titleText = "Biểu đồ so sánh giá") {
+        const wrap = document.createElement("div");
+        wrap.className = "excel-viz-chart";
+        wrap.style.border = "1px solid #e5e7eb";
+        wrap.style.borderRadius = "16px";
+        wrap.style.background = "#ffffff";
+        wrap.style.padding = "12px";
+        wrap.style.marginTop = "10px";
+
+        const title = document.createElement("div");
+        title.style.fontSize = "13px";
+        title.style.fontWeight = "700";
+        title.style.color = "#111827";
+        title.style.marginBottom = "10px";
+        title.textContent = titleText;
+        wrap.appendChild(title);
+
+        const values = (items || []).map(it => parsePriceNumber(it?.price)).filter(v => Number.isFinite(v));
+        const maxV = values.length ? Math.max(...values) : 0;
+
+        const list = document.createElement("div");
+        list.style.display = "flex";
+        list.style.flexDirection = "column";
+        list.style.gap = "10px";
+
+        (items || []).forEach(it => {
+            const nameRaw = String(it?.name ?? "");
+            const priceRaw = String(it?.price ?? "");
+            const v = parsePriceNumber(priceRaw);
+            const pct = (Number.isFinite(v) && maxV > 0) ? Math.max(2, Math.round((v / maxV) * 100)) : 0;
+
+            const row = document.createElement("div");
+
+            const label = document.createElement("div");
+            label.style.display = "flex";
+            label.style.alignItems = "baseline";
+            label.style.justifyContent = "space-between";
+            label.style.gap = "10px";
+            label.style.marginBottom = "6px";
+
+            const left = document.createElement("div");
+            left.style.fontSize = "13px";
+            left.style.color = "#111827";
+            left.style.fontWeight = "600";
+            left.style.lineHeight = "1.35";
+            left.textContent = nameRaw || "—";
+
+            const right = document.createElement("div");
+            right.style.fontSize = "12px";
+            right.style.color = "#6b7280";
+            right.style.whiteSpace = "nowrap";
+            right.textContent = priceRaw || "—";
+
+            label.appendChild(left);
+            label.appendChild(right);
+
+            const barOuter = document.createElement("div");
+            barOuter.style.height = "10px";
+            barOuter.style.background = "#f3f4f6";
+            barOuter.style.border = "1px solid #e5e7eb";
+            barOuter.style.borderRadius = "999px";
+            barOuter.style.overflow = "hidden";
+
+            const barInner = document.createElement("div");
+            barInner.style.height = "100%";
+            barInner.style.width = pct ? `${pct}%` : "0%";
+            barInner.style.background = "#111827"; // đồng nhất theme
+            barInner.style.borderRadius = "999px";
+            barOuter.appendChild(barInner);
+
+            row.appendChild(label);
+            row.appendChild(barOuter);
+            list.appendChild(row);
+        });
+
+        wrap.appendChild(list);
+        return wrap;
+    }
+
+    function handleExcelVisualizeResponse(data, botEl) {
+        const vis = extractExcelVisualize(data);
+        if (!vis || !botEl) return false;
+
+        // remove viz cũ nếu có (khi regenerate/edit)
+        botEl.querySelectorAll(".excel-viz").forEach(n => n.remove());
+
+        const stack = botEl.querySelector(".bot-stack");
+        const actions = botEl.querySelector(".message-actions");
+
+        const vizWrap = document.createElement("div");
+        vizWrap.className = "excel-viz";
+        vizWrap.style.marginTop = "10px";
+
+        const titleParts = [];
+        if (vis.industrial_type) titleParts.push(vis.industrial_type);
+        if (vis.province) titleParts.push(vis.province);
+        const titleText = titleParts.length ? `Biểu đồ so sánh giá (${titleParts.join(" - ")})` : "Biểu đồ so sánh giá";
+
+        if (vis.chart_base64) {
+            const img = document.createElement("img");
+            img.alt = titleText;
+            img.src = "data:image/png;base64," + vis.chart_base64;
+            img.style.maxWidth = "100%";
+            img.style.display = "block";
+            img.style.borderRadius = "16px";
+            img.style.border = "1px solid #e5e7eb";
+            img.style.boxShadow = "0 12px 30px rgba(0,0,0,0.06)";
+            vizWrap.appendChild(img);
+        } else if (Array.isArray(vis.items) && vis.items.length) {
+            // Fallback: server không trả base64 → vẽ chart HTML bằng CSS
+            vizWrap.appendChild(buildBarChart(vis.items, titleText));
+        }
+
+        // luôn kèm bảng cho dễ đối chiếu
+        if (Array.isArray(vis.items) && vis.items.length) {
+            vizWrap.appendChild(buildPriceTable(vis.items));
+        }
+
+        if (stack && actions) stack.insertBefore(vizWrap, actions);
+        else if (stack) stack.appendChild(vizWrap);
+        else botEl.appendChild(vizWrap);
+
+        setTimeout(scrollToBottom, 80);
+        return true;
     }
 
     // ====================  LINKIFY (tô xanh & click được)  ====================
@@ -679,6 +889,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const normalized = normalizeBotMessage(answer);
             bubble.innerHTML = normalized.html;
+            handleExcelVisualizeResponse(data, botEl);
 
             logToGoogle({
                 event: 'regenerate',
@@ -765,7 +976,7 @@ document.addEventListener('DOMContentLoaded', function () {
             body: JSON.stringify({ question })
         });
         const data = await res.json();
-        return data.answer || data.reply || 'No response.';
+        return data;
     }
 
     async function submitEditedMessage(userEl, newText) {
@@ -797,9 +1008,11 @@ document.addEventListener('DOMContentLoaded', function () {
         showTypingIndicator();
 
         try {
-            const answer = await postChat(newText);
+            const data = await postChat(newText);
             hideTypingIndicator();
-            addBotMessage(answer, { messageId, question: newText });
+            const answer = data?.answer || data?.reply || 'No response.';
+            const botEl = addBotMessage(answer, { messageId, question: newText });
+            handleExcelVisualizeResponse(data, botEl);
 
             logToGoogle({
                 event: 'edit',
@@ -1125,7 +1338,9 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 hideTypingIndicator();
                 const answer = data.answer || data.reply || "No response.";
-                addBotMessage(answer, { messageId, question: text });
+                const botEl = addBotMessage(answer, { messageId, question: text });
+
+                handleExcelVisualizeResponse(data, botEl);
 
                 // ✅ log answered (điểm bạn đang thiếu)
                 logToGoogle({
