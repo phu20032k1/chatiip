@@ -1,16 +1,12 @@
 /*
   Auth UI (frontend-only demo)
   - Login/Register modal (email/password)
-  - Social buttons (Google/Facebook) – demo only
   - Persist auth + settings in localStorage
   - After login: hide Login/Register bar on pages that have hamburger sidebar; show account in hamburger.
 */
 
 (function () {
   const STORAGE_CURRENT = "chatiip_current_user";
-  // Access token (JWT) do backend trả về khi login/register
-  const STORAGE_TOKEN = "chatiip_access_token";
-  // Legacy (demo) - giữ lại để không phá vỡ dữ liệu cũ, nhưng không dùng nữa
   const STORAGE_USERS = "chatiip_users";
   const STORAGE_THEME = "chatiip_theme"; // 'light' | 'dark'
   const STORAGE_SETTINGS = "chatiip_settings"; // { notifications: boolean }
@@ -40,53 +36,13 @@
     return Date.now() + "_" + Math.random().toString(16).slice(2);
   }
 
-  // ---------------- Backend auth helpers ----------------
-  // Thông qua Netlify/_redirects:
-  //  - /auth/*  -> BACKEND /api/auth/*
-  // Vì vậy FE chỉ cần gọi /auth/...
-  const AUTH_BASE = "/auth";
-
-  function getToken() {
+  // NOTE: demo only (NOT secure)
+  function pwHash(pw) {
     try {
-      return localStorage.getItem(STORAGE_TOKEN) || "";
+      return btoa(unescape(encodeURIComponent(pw)));
     } catch {
-      return "";
+      return pw;
     }
-  }
-
-  function setToken(token) {
-    try {
-      if (token) localStorage.setItem(STORAGE_TOKEN, token);
-      else localStorage.removeItem(STORAGE_TOKEN);
-    } catch {
-      // ignore
-    }
-  }
-
-  async function apiAuth(path, { method = "GET", body, auth = true } = {}) {
-    const headers = { "Content-Type": "application/json" };
-    const token = getToken();
-    if (auth && token) headers.Authorization = `Bearer ${token}`;
-
-    const res = await fetch(`${AUTH_BASE}${path}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-      credentials: "include"
-    });
-
-    const text = await res.text().catch(() => "");
-    let data = null;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch {
-      data = text;
-    }
-    if (!res.ok) {
-      const msg = (data && data.message) || (typeof data === "string" && data) || `HTTP ${res.status}`;
-      throw new Error(msg);
-    }
-    return data;
   }
 
   function getCurrentUser() {
@@ -181,14 +137,40 @@
     const bar = document.getElementById("authBar");
     if (!bar) return;
 
+    const isMobile = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+    const newsBtn = document.getElementById("newsBtn");
+
+    // Reset inline styles so resize (desktop <-> mobile) always looks correct
+    bar.style.position = "fixed";
+    bar.style.left = "";
+    bar.style.right = "";
+    bar.style.transform = "";
+    bar.style.top = "";
+
+    // ✅ Desktop: đưa nút Đăng nhập/Đăng ký sát hơn nữa cạnh nút Tin tức
+    if (!isMobile && newsBtn) {
+      const rect = newsBtn.getBoundingClientRect();
+      const gap = 4; // gần hơn
+      bar.style.top = rect.top + "px";
+      bar.style.left = "auto";
+      bar.style.right = (window.innerWidth - rect.left + gap) + "px";
+      bar.style.transform = "none";
+      return;
+    }
+
+    // ✅ Mobile: luôn giữ ở giữa màn hình (không đổi layout mobile)
+    bar.style.left = "50%";
+    bar.style.right = "auto";
+    bar.style.transform = "translateX(-50%)";
+
     const hasSidebar = !!document.getElementById("sidebar");
     if (hasSidebar) {
       bar.style.top = "16px";
       return;
     }
 
-    // If the page has its own header (news/laws/article...), push auth bar below it to avoid overlap.
-    const header = document.querySelector("header");
+    // If there's a header, place below it; else default top.
+    const header = document.querySelector(".header") || document.querySelector("header");
     if (header) {
       const h = header.getBoundingClientRect().height || 64;
       const top = Math.min(16 + h + 8, 120);
@@ -250,17 +232,6 @@ function injectAuthUI() {
           </div>
 
           <div class="auth-panel" id="panelLogin">
-            <div class="auth-social">
-              <button class="social-btn google" id="googleLoginBtn" type="button">
-                <i class="fa-brands fa-google"></i> Tiếp tục với Google
-              </button>
-              <button class="social-btn facebook" id="facebookLoginBtn" type="button">
-                <i class="fa-brands fa-facebook"></i> Tiếp tục với Facebook
-              </button>
-            </div>
-
-            <div class="auth-divider"><span>hoặc</span></div>
-
             <form id="loginForm" class="auth-form">
               <label class="auth-label">Email</label>
               <input class="auth-input" id="loginEmail" type="email" placeholder="vd: ten@email.com" required />
@@ -274,17 +245,6 @@ function injectAuthUI() {
           </div>
 
           <div class="auth-panel hidden" id="panelRegister">
-            <div class="auth-social">
-              <button class="social-btn google" id="googleRegisterBtn" type="button">
-                <i class="fa-brands fa-google"></i> Đăng ký với Google
-              </button>
-              <button class="social-btn facebook" id="facebookRegisterBtn" type="button">
-                <i class="fa-brands fa-facebook"></i> Đăng ký với Facebook
-              </button>
-            </div>
-
-            <div class="auth-divider"><span>hoặc</span></div>
-
             <form id="registerForm" class="auth-form">
               <label class="auth-label">Họ & tên</label>
               <input class="auth-input" id="regName" type="text" placeholder="VD: Minh Phú" required />
@@ -392,7 +352,7 @@ function injectAuthUI() {
               <button class="auth-btn small" id="sidebarLoginBtn" type="button">Đăng nhập</button>
               <button class="auth-btn secondary small" id="sidebarRegisterBtn" type="button">Đăng ký</button>
             </div>
-            <div class="account-guest-hint">Hoặc dùng Google / Facebook trong form đăng nhập.</div>
+            <div class="account-guest-hint">Đăng nhập để đồng bộ lịch sử và cài đặt.</div>
           </div>
 
           <div class="account-user" id="accountUser" style="display:none;">
@@ -569,86 +529,105 @@ function injectAuthUI() {
   }
 
   // --------------- Auth actions ----------------
-  async function handleRegister(name, email, password) {
+  function handleRegister(name, email, password) {
+    const users = getUsers();
     const normalizedEmail = (email || "").trim().toLowerCase();
+
+    if (!name.trim()) {
+      showToast("Vui lòng nhập họ & tên.", "error");
+      return;
+    }
+
     if (!normalizedEmail) {
       showToast("Vui lòng nhập email hợp lệ.", "error");
       return;
     }
+
     if ((password || "").length < 6) {
       showToast("Mật khẩu tối thiểu 6 ký tự.", "error");
       return;
     }
 
-    try {
-      const data = await apiAuth("/register", {
-        method: "POST",
-        auth: false,
-        body: { name: (name || "").trim(), email: normalizedEmail, password }
-      });
-
-      if (data?.token) setToken(data.token);
-      const u = data?.user;
-      // backend trả: { id, name, email, role }
-      setCurrentUser({
-        id: u?.id || "anonymous",
-        name: u?.name || "",
-        email: u?.email || normalizedEmail,
-        role: u?.role || "user",
-        provider: "password"
-      });
-
-      showToast(`Tạo tài khoản thành công! Xin chào ${u?.name || normalizedEmail}.`, "success");
-      closeOverlay("authOverlay");
-      syncAllUI();
-    } catch (e) {
-      showToast(`Đăng ký thất bại: ${e.message}`, "error");
+    const exists = users.some((u) => (u.email || "").toLowerCase() === normalizedEmail);
+    if (exists) {
+      showToast("Email này đã được đăng ký. Hãy đăng nhập nhé!", "error");
+      return;
     }
+
+    const user = {
+      id: "u_" + uuid(),
+      name: name.trim(),
+      email: normalizedEmail,
+      provider: "password",
+      password_hash: pwHash(password),
+      createdAt: new Date().toISOString(),
+    };
+
+    users.push(user);
+    setUsers(users);
+
+    // auto login
+    const sessionUser = { id: user.id, name: user.name, email: user.email, provider: user.provider };
+    setCurrentUser(sessionUser);
+
+    showToast(`Tạo tài khoản thành công! Xin chào ${sessionUser.name}.`, "success");
+    closeOverlay("authOverlay");
+    syncAllUI();
   }
 
-  async function handleLogin(email, password) {
+  function handleLogin(email, password) {
+    const users = getUsers();
     const normalizedEmail = (email || "").trim().toLowerCase();
+
     if (!normalizedEmail) {
       showToast("Vui lòng nhập email.", "error");
       return;
     }
 
-    try {
-      const data = await apiAuth("/login", {
-        method: "POST",
-        auth: false,
-        body: { email: normalizedEmail, password }
-      });
-
-      if (data?.token) setToken(data.token);
-      const u = data?.user;
-      setCurrentUser({
-        id: u?.id || "anonymous",
-        name: u?.name || "",
-        email: u?.email || normalizedEmail,
-        role: u?.role || "user",
-        provider: "password"
-      });
-
-      showToast(`Đăng nhập thành công! Xin chào ${u?.name || normalizedEmail}.`, "success");
-      closeOverlay("authOverlay");
-      syncAllUI();
-    } catch (e) {
-      showToast(`Đăng nhập thất bại: ${e.message}`, "error");
+    const user = users.find((u) => (u.email || "").toLowerCase() === normalizedEmail);
+    if (!user) {
+      showToast("Không tìm thấy tài khoản. Hãy đăng ký trước nhé!", "error");
+      return;
     }
+
+    if (user.provider === "password") {
+      if (pwHash(password || "") !== user.password_hash) {
+        showToast("Sai mật khẩu. Vui lòng thử lại.", "error");
+        return;
+      }
+    }
+
+    const sessionUser = { id: user.id, name: user.name, email: user.email, provider: user.provider };
+    setCurrentUser(sessionUser);
+
+    showToast(`Đăng nhập thành công! Xin chào ${sessionUser.name}.`, "success");
+    closeOverlay("authOverlay");
+    syncAllUI();
   }
 
   function handleSocial(provider) {
-    showToast(`Hiện chưa hỗ trợ đăng nhập bằng ${provider === "google" ? "Google" : "Facebook"}.`, "info");
+    const users = getUsers();
+    const id = provider + "_" + uuid();
+    const name = provider === "google" ? "Google User" : "Facebook User";
+    const email = `${id}@${provider}.demo`;
+
+    const user = { id: "u_" + id, name, email, provider, createdAt: new Date().toISOString() };
+
+    // store if not exists (by email)
+    if (!users.some((u) => (u.email || "").toLowerCase() === email.toLowerCase())) {
+      users.push(user);
+      setUsers(users);
+    }
+
+    const sessionUser = { id: user.id, name: user.name, email: user.email, provider: user.provider };
+    setCurrentUser(sessionUser);
+
+    showToast(`Đăng nhập thành công bằng ${provider === "google" ? "Google" : "Facebook"}!`, "success");
+    closeOverlay("authOverlay");
+    syncAllUI();
   }
 
-  async function logout() {
-    try {
-      await apiAuth("/logout", { method: "POST" });
-    } catch {
-      // ignore
-    }
-    setToken("");
+  function logout() {
     clearCurrentUser();
     showToast("Bạn đã đăng xuất.", "info");
     closeOverlay("accountOverlay");
@@ -703,13 +682,6 @@ function injectAuthUI() {
       const pw = document.getElementById("loginPassword")?.value || "";
       handleLogin(email, pw);
     });
-
-    // Social
-    document.getElementById("googleLoginBtn")?.addEventListener("click", () => handleSocial("google"));
-    document.getElementById("facebookLoginBtn")?.addEventListener("click", () => handleSocial("facebook"));
-    document.getElementById("googleRegisterBtn")?.addEventListener("click", () => handleSocial("google"));
-    document.getElementById("facebookRegisterBtn")?.addEventListener("click", () => handleSocial("facebook"));
-
     // Sidebar account expand/collapse
     const toggle = document.getElementById("accountToggleBtn");
     const panel = document.getElementById("accountPanel");
@@ -793,30 +765,6 @@ function injectAuthUI() {
   }
 
   // --------------- Boot ----------------
-  async function hydrateSessionFromBackend() {
-    // Nếu có token (hoặc cookie) thì thử gọi /me để lấy user thật
-    try {
-      const hasToken = !!getToken();
-      // Nếu không có token thì vẫn có thể có cookie (admin.chatiip.com...), cứ thử một lần.
-      const me = await apiAuth("/me", { method: "GET", auth: hasToken });
-      if (me && me.user) {
-        setCurrentUser({
-          id: me.user.id,
-          name: me.user.name || "",
-          email: me.user.email,
-          role: me.user.role || "user",
-          provider: "password"
-        });
-        syncAllUI();
-      }
-    } catch {
-      // Token/cookie không hợp lệ → clear
-      setToken("");
-      clearCurrentUser();
-      syncAllUI();
-    }
-  }
-
   document.addEventListener("DOMContentLoaded", () => {
     injectAuthUI();
     adjustAuthBarPosition();
@@ -824,6 +772,5 @@ function injectAuthUI() {
     initThemeFromStorage();
     wireEvents();
     syncAllUI();
-    hydrateSessionFromBackend();
   });
 })();

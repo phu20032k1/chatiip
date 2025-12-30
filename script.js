@@ -39,6 +39,18 @@ async function logToGoogle(payload) {
 
 
 
+
+
+// ====================  ESCAPE HTML (GLOBAL)  ====================
+function escapeHtmlGlobal(unsafe) {
+    return String(unsafe ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 // ⭐ jsonToIndustrialTableV2 giữ nguyên để render bảng từ JSON
 function jsonToIndustrialTableV2(data) {
     if (!Array.isArray(data) || data.length === 0) {
@@ -58,63 +70,96 @@ function jsonToIndustrialTableV2(data) {
     // ⭐ CHUẨN HÓA MỌI PHẦN TỬ
     data = data.map(normalize);
 
-    let html = `
-    <div style="
-    overflow-x: auto;
-    overflow-y: auto;
-    max-height: 500px;
-">
-    <table style="
-        width:100%;
-        border-collapse: collapse;
-        margin: 12px 0;
-        font-size: 14px;
-        background: white;
-        border-radius: 10px;
-        overflow: hidden;
-    ">
-        <thead>
-            <tr style="background:#000000ff; color:white;">
-                <th style="padding:10px;">STT</th>
-                <th style="padding:10px;">Tên</th>
-                <th style="padding:10px;">Địa chỉ</th>
-                <th style="padding:10px;">Diện tích</th>
-                <th style="padding:10px;">Ngành nghề</th>
-            </tr>
-        </thead>
-        <tbody>
-    `;
+    const total = data.length;
+
+    let rows = "";
+    let cards = "";
 
     data.forEach((item, idx) => {
-        html += `
-        <tr style="background:${idx % 2 === 0 ? '#fafafa' : '#ffffff'};">
-            <td style="padding:10px; border-top:1px solid #e5e7eb;">${idx + 1}</td>
-            <td style="padding:10px; border-top:1px solid #e5e7eb;">${item.name}</td>
-            <td style="padding:10px; border-top:1px solid #e5e7eb;">${item.address}</td>
-            <td style="padding:10px; border-top:1px solid #e5e7eb;">${item.area}</td>
-            <td style="padding:10px; border-top:1px solid #e5e7eb;">
-                <ul style="margin:0; padding-left:18px; list-style-type:disc;">
-                    ${(item.industry || "")
-                .split(/[\n•;]/)
-                .map(i => i.trim())
-                .filter(i => i !== "")
-                .map(i => `<li>${i}</li>`)
-                .join("")
-            }
-                </ul>
-            </td>
-        </tr>`;
+        const industries = (item.industry || "")
+            .split(/[\n•;]/)
+            .map(i => i.trim())
+            .filter(Boolean);
+
+        const chips = industries.length
+            ? industries.map(i => `<span class="chip">${escapeHtmlGlobal(i)}</span>`).join("")
+            : `<span class="chip">—</span>`;
+
+        rows += `
+          <tr>
+            <td class="col-stt">${idx + 1}</td>
+            <td>${escapeHtmlGlobal(String(item.name || ""))}</td>
+            <td>${escapeHtmlGlobal(String(item.address || ""))}</td>
+            <td class="col-area">${escapeHtmlGlobal(String(item.area || ""))}</td>
+            <td><div class="chip-row">${chips}</div></td>
+          </tr>
+        `;
+
+        cards += `
+          <article class="data-card">
+            <div class="data-card-head">
+              <div class="data-card-title">${idx + 1}. ${escapeHtmlGlobal(String(item.name || ""))}</div>
+              <div class="data-card-badge">${escapeHtmlGlobal(String(item.area || "")) || "—"}</div>
+            </div>
+
+            <div class="data-card-line">
+              <div class="data-card-label">Địa chỉ</div>
+              <div class="data-card-value">${escapeHtmlGlobal(String(item.address || "")) || "—"}</div>
+            </div>
+
+            <div class="data-card-line">
+              <div class="data-card-label">Ngành nghề</div>
+              <div class="data-card-value"><div class="chip-row">${chips}</div></div>
+            </div>
+          </article>
+        `;
     });
 
-    html += `
-        </tbody>
-    </table>
-    </div>
+    const html = `
+      <div class="data-block" data-view="table">
+        <div class="data-block-toolbar">
+          <div class="data-block-title">Kết quả: <strong>${total}</strong></div>
+          <div class="data-view-tabs" role="tablist" aria-label="Chế độ xem">
+            <button class="data-view-tab active" type="button" data-view-target="table" role="tab" aria-selected="true">
+              <i class="fa-solid fa-table"></i> Bảng
+            </button>
+            <button class="data-view-tab" type="button" data-view-target="cards" role="tab" aria-selected="false">
+              <i class="fa-regular fa-rectangle-list"></i> Thẻ
+            </button>
+          </div>
+        </div>
+
+        <div class="data-panel active" data-view-panel="table">
+          <div class="data-table-wrap" role="region" aria-label="Bảng dữ liệu" tabindex="0">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="col-stt">STT</th>
+                  <th>Tên</th>
+                  <th>Địa chỉ</th>
+                  <th class="col-area">Diện tích</th>
+                  <th>Ngành nghề</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="data-panel" data-view-panel="cards">
+          <div class="data-cards-wrap" role="region" aria-label="Thẻ dữ liệu" tabindex="0">
+            <div class="data-cards">
+              ${cards}
+            </div>
+          </div>
+        </div>
+      </div>
     `;
 
     return html;
 }
-
 
 
 
@@ -175,11 +220,31 @@ document.addEventListener('DOMContentLoaded', function () {
     // ⭐ FIX QUAN TRỌNG: Auto scroll
     // =========================
     function scrollToBottom() {
-        // Sử dụng requestAnimationFrame để đảm bảo DOM đã cập nhật
+        // Kéo xuống cuối ở cả 2 trường hợp:
+        // 1) chatContainer có scroll nội bộ
+        // 2) trang (window) mới là phần đang scroll (một số layout)
         requestAnimationFrame(() => {
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            try {
+                if (chatContainer) {
+                    const canInnerScroll = (chatContainer.scrollHeight - chatContainer.clientHeight) > 2;
+                    if (canInnerScroll) {
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    }
+                }
+
+                // Window scroll: đảm bảo luôn thấy tin nhắn mới + ô nhập
+                const anchor = document.getElementById("messageInputContainer") || chatContainer || document.body;
+                const targetY = anchor.getBoundingClientRect().bottom + window.scrollY + 16;
+                window.scrollTo({ top: Math.min(targetY, document.documentElement.scrollHeight), behavior: "smooth" });
+            } catch (e) {
+                // fallback
+                try {
+                    window.scrollTo(0, document.documentElement.scrollHeight);
+                } catch (_) { }
+            }
         });
     }
+
 
     // ⭐ Auto expand textarea (tự mở rộng ô nhập tin nhắn)
     messageInput.addEventListener("input", function () {
@@ -209,28 +274,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     // ====================  GỬI TIN NHẮN VĂN BẢN  ====================
-    function getAccessToken() {
-        try { return localStorage.getItem('chatiip_access_token') || ''; } catch { return ''; }
-    }
-
-    async function callChatAPI(question) {
-        const token = getAccessToken();
-        const headers = { "Content-Type": "application/json" };
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-
-        const res = await fetch("/api/chat", {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ question })
-        });
-
-        if (!res.ok) {
-            const t = await res.text().catch(() => "");
-            throw new Error(t || `HTTP ${res.status}`);
-        }
-        return res.json();
-    }
-
     function sendMessage() {
 
         const message = messageInput.value.trim();
@@ -257,12 +300,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
         showTypingIndicator();
 
-        callChatAPI(message)
+        fetch("https://luat-lao-dong.onrender.com/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question: message })
+        })
+            .then(res => res.json())
             .then(data => {
                 hideTypingIndicator();
                 const answer = data.answer || data.reply || "No response.";
-                const citations = Array.isArray(data.citations) ? data.citations : [];
-                addBotMessage(answer, { messageId, question: message, citations });
+                addBotMessage(answer, { messageId, question: message });
 
                 // ✅ UPDATE ANSWER VÀO GOOGLE
                 logToGoogle({
@@ -276,7 +323,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .catch(() => {
                 hideTypingIndicator();
-                addBotMessage("⚠️ Lỗi kết nối đến chatbot.");
+                addBotMessage("⚠️ Lỗi kết nối đến chatbot Render.");
             });
     }
 
@@ -291,6 +338,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     // ====================  HIỂN THỊ TIN NHẮN NGƯỜI DÙNG  ====================
+
     function addUserMessage(message, files = []) {
         if (welcomeMessage && welcomeMessage.style.display !== 'none') {
             welcomeMessage.style.display = 'none';
@@ -303,7 +351,24 @@ document.addEventListener('DOMContentLoaded', function () {
         const userMessageElement = document.createElement('div');
         userMessageElement.className = 'message user-message';
 
-        let messageContent = `<div class="message-bubble user-bubble">${escapeHtml(message)}</div>`;
+        const userMsgId = (window.crypto && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : Date.now() + "_" + Math.random();
+
+        userMessageElement.dataset.userMessageId = userMsgId;
+        userMessageElement.dataset.text = message;
+
+        let messageContent = `
+          <div class="user-stack">
+            <div class="message-bubble user-bubble">${escapeHtml(message)}</div>
+            <div class="message-actions user-actions">
+              ${renderActionButton('user-copy', 'fa-regular fa-copy', 'Sao chép')}
+              ${renderActionButton('user-select', 'fa-solid fa-i-cursor', 'Chọn văn bản')}
+              ${renderActionButton('user-edit', 'fa-regular fa-pen-to-square', 'Chỉnh sửa')}
+              ${renderActionButton('user-share', 'fa-solid fa-share-nodes', 'Chia sẻ')}
+            </div>
+          </div>
+        `;
 
         if (files && files.length > 0) {
             files.forEach(file => {
@@ -323,7 +388,7 @@ document.addEventListener('DOMContentLoaded', function () {
         setTimeout(scrollToBottom, 50);
     }
 
-    // ====================  HIỂN THỊ TIN NHẮN BOT + ACTIONS  ====================
+    // ====================  HIỂN THỊ TIN NHẮN BOT + ACTIONS  ====================  ====================
     function renderActionButton(action, iconClass, tooltip) {
         return `
             <button class="action-btn" type="button" data-action="${action}" aria-label="${tooltip}">
@@ -379,39 +444,8 @@ document.addEventListener('DOMContentLoaded', function () {
         return { finalMessage, html, isHTML };
     }
 
-    function renderCitations(citations = []) {
-        if (!Array.isArray(citations) || citations.length === 0) return "";
-
-        const items = citations.map((c) => {
-            const title = escapeHtml(c.title || c.soHieu || 'Nguồn');
-            const so = c.soHieu ? ` <span class="cite-so">${escapeHtml(c.soHieu)}</span>` : "";
-            const status = c.tinhTrang ? ` <span class="cite-status">${escapeHtml(c.tinhTrang)}</span>` : "";
-            const excerpt = c.excerpt ? `<div class="cite-excerpt">${escapeHtml(c.excerpt)}</div>` : "";
-            const url = c.url || "";
-            const btn = url
-                ? `<a class="cite-open" href="${url}" target="_blank" rel="noopener noreferrer">Mở nguồn</a>`
-                : `<span class="cite-open disabled">Không có link</span>`;
-            return `
-                <div class="cite-item">
-                    <div class="cite-top">
-                        <div class="cite-title">${title}${so}${status}</div>
-                        ${btn}
-                    </div>
-                    ${excerpt}
-                </div>
-            `;
-        }).join("");
-
-        return `
-            <div class="citations">
-                <div class="citations-head">Trích dẫn nguồn</div>
-                ${items}
-            </div>
-        `;
-    }
-
     function addBotMessage(message, meta = {}) {
-        const { messageId = "", question = "", citations = [] } = meta || {};
+        const { messageId = "", question = "" } = meta || {};
 
         // ⭐ ĐẢM BẢO: Xóa class 'centered' khi bot trả lời
         messageInputContainer.classList.remove('centered');
@@ -428,7 +462,6 @@ document.addEventListener('DOMContentLoaded', function () {
         botMessageElement.innerHTML = `
             <div class="bot-stack">
                 <div class="message-bubble bot-bubble">${normalized.html}</div>
-                ${renderCitations(citations)}
                 <div class="message-actions">
                     ${renderActionButton('like', 'fa-regular fa-thumbs-up', 'Đồng ý')}
                     ${renderActionButton('dislike', 'fa-regular fa-thumbs-down', 'Không đồng ý')}
@@ -444,6 +477,22 @@ document.addEventListener('DOMContentLoaded', function () {
         setTimeout(scrollToBottom, 50);
     }
 
+    // ====================  LINKIFY (tô xanh & click được)  ====================
+    function linkifyHtml(html) {
+        const urlRegex = /((https?:\/\/|www\.)[^\s<]+[^<.,;:"')\]\s])/g;
+
+        return String(html)
+            .split(/(<[^>]+>)/g) // giữ nguyên thẻ html (strong, br, ...)
+            .map(part => {
+                if (part.startsWith('<')) return part;
+                return part.replace(urlRegex, (raw) => {
+                    const href = raw.startsWith('http') ? raw : `https://${raw}`;
+                    return `<a class="chat-link" href="${href}" target="_blank" rel="noopener noreferrer">${raw}</a>`;
+                });
+            })
+            .join('');
+    }
+
     // ====================  FORMAT MESSAGE (bold & newline)  ====================
     function formatMessage(text) {
         if (!text) return "";
@@ -454,6 +503,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
         text = text.replace(/\n/g, "<br>");
+
+        text = linkifyHtml(text);
 
         return text;
     }
@@ -617,20 +668,17 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         try {
-            const data = await callChatAPI(question);
+            const res = await fetch('https://luat-lao-dong.onrender.com/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question })
+            });
+
+            const data = await res.json();
             const answer = data.answer || data.reply || 'No response.';
-            const citations = Array.isArray(data.citations) ? data.citations : [];
 
             const normalized = normalizeBotMessage(answer);
             bubble.innerHTML = normalized.html;
-
-            // update citations block (replace if exists)
-            const oldCite = botEl.querySelector('.citations');
-            if (oldCite) oldCite.remove();
-            const actions = botEl.querySelector('.message-actions');
-            if (actions) {
-                actions.insertAdjacentHTML('beforebegin', renderCitations(citations));
-            }
 
             logToGoogle({
                 event: 'regenerate',
@@ -654,11 +702,199 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // ====================  USER MESSAGE ACTIONS (COPY/SELECT/EDIT/SHARE)  ====================
+    function selectTextInElement(el) {
+        if (!el) return;
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+
+    function clearMessagesAfter(messageEl) {
+        if (!messageEl) return;
+        let next = messageEl.nextSibling;
+        while (next) {
+            const toRemove = next;
+            next = next.nextSibling;
+            toRemove.remove();
+        }
+        setTimeout(scrollToBottom, 50);
+    }
+
+    function openEditPanel(userEl) {
+        if (!userEl || userEl.classList.contains('editing')) return;
+
+        const bubble = userEl.querySelector('.message-bubble');
+        const actions = userEl.querySelector('.message-actions');
+        const stack = userEl.querySelector('.user-stack') || userEl;
+        const currentText = (userEl.dataset.text || bubble?.innerText || '').trim();
+
+        userEl.classList.add('editing');
+
+        // remove old panel if any
+        stack.querySelector('.edit-panel')?.remove();
+
+        const panel = document.createElement('div');
+        panel.className = 'edit-panel';
+        panel.innerHTML = `
+          <textarea class="edit-textarea" rows="3"></textarea>
+          <div class="edit-actions">
+            <button type="button" class="edit-btn" data-edit-action="cancel">Hủy</button>
+            <button type="button" class="edit-btn primary" data-edit-action="save">Lưu & gửi</button>
+          </div>
+        `;
+
+        stack.appendChild(panel);
+        const textarea = panel.querySelector('.edit-textarea');
+        if (textarea) {
+            textarea.value = currentText;
+            textarea.focus();
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+        }
+
+        // hide bubble/actions by CSS (.editing)
+        setTimeout(scrollToBottom, 50);
+    }
+
+    async function postChat(question) {
+        const res = await fetch('https://luat-lao-dong.onrender.com/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question })
+        });
+        const data = await res.json();
+        return data.answer || data.reply || 'No response.';
+    }
+
+    async function submitEditedMessage(userEl, newText) {
+        const bubble = userEl.querySelector('.message-bubble');
+        if (bubble) bubble.innerHTML = escapeHtml(newText);
+        userEl.dataset.text = newText;
+
+        // close edit mode
+        userEl.classList.remove('editing');
+        userEl.querySelector('.edit-panel')?.remove();
+
+        // remove all messages after this user message (giống ChatGPT)
+        clearMessagesAfter(userEl);
+
+        const messageId = (window.crypto && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : Date.now() + "_" + Math.random();
+
+        // asked log
+        logToGoogle({
+            event: 'edit',
+            message_id: messageId,
+            session_id: getSessionId(),
+            user_id: getUserId(),
+            question: newText,
+            status: 'asked'
+        });
+
+        showTypingIndicator();
+
+        try {
+            const answer = await postChat(newText);
+            hideTypingIndicator();
+            addBotMessage(answer, { messageId, question: newText });
+
+            logToGoogle({
+                event: 'edit',
+                message_id: messageId,
+                session_id: getSessionId(),
+                user_id: getUserId(),
+                question: newText,
+                answer: answer,
+                status: 'answered'
+            });
+        } catch (e) {
+            hideTypingIndicator();
+            addBotMessage('⚠️ Lỗi kết nối đến chatbot Render.');
+        }
+    }
+
     chatContainer.addEventListener('click', async (e) => {
+        // Edit panel actions
+        const editActionBtn = e.target.closest('[data-edit-action]');
+        if (editActionBtn) {
+            const action = editActionBtn.dataset.editAction;
+            const userEl = editActionBtn.closest('.user-message');
+            if (!userEl) return;
+
+            if (action === 'cancel') {
+                userEl.classList.remove('editing');
+                userEl.querySelector('.edit-panel')?.remove();
+                return;
+            }
+
+            if (action === 'save') {
+                const textarea = userEl.querySelector('.edit-textarea');
+                const newText = (textarea?.value || '').trim();
+                if (!newText) {
+                    alert('Tin nhắn không được để trống');
+                    return;
+                }
+                await submitEditedMessage(userEl, newText);
+                return;
+            }
+        }
+
         const btn = e.target.closest('.action-btn');
         if (!btn) return;
 
-        const botEl = btn.closest('.bot-message');
+        const messageEl = btn.closest('.message');
+        if (!messageEl) return;
+
+        // USER MESSAGE ACTIONS
+        if (messageEl.classList.contains('user-message')) {
+            const bubble = messageEl.querySelector('.message-bubble');
+            const text = (messageEl.dataset.text || bubble?.innerText || '').trim();
+            const action = btn.dataset.action;
+
+            if (action === 'user-copy') {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    showTempTooltip(btn, 'Đã sao chép');
+                } catch (err) {
+                    showTempTooltip(btn, 'Không thể sao chép');
+                }
+                return;
+            }
+
+            if (action === 'user-select') {
+                if (bubble) selectTextInElement(bubble);
+                showTempTooltip(btn, 'Đã chọn');
+                return;
+            }
+
+            if (action === 'user-share') {
+                try {
+                    if (navigator.share) {
+                        await navigator.share({ text });
+                        showTempTooltip(btn, 'Đã chia sẻ');
+                    } else {
+                        await navigator.clipboard.writeText(text);
+                        showTempTooltip(btn, 'Đã sao chép');
+                    }
+                } catch (err) {
+                    showTempTooltip(btn, 'Không thể chia sẻ');
+                }
+                return;
+            }
+
+            if (action === 'user-edit') {
+                openEditPanel(messageEl);
+                return;
+            }
+
+            return;
+        }
+
+        // BOT MESSAGE ACTIONS
+        const botEl = messageEl.classList.contains('bot-message') ? messageEl : btn.closest('.bot-message');
         if (!botEl) return;
 
         const action = btn.dataset.action;
@@ -880,12 +1116,16 @@ document.addEventListener('DOMContentLoaded', function () {
             status: "asked"
         });
 
-        callChatAPI(text)
+        fetch("https://luat-lao-dong.onrender.com/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question: text })
+        })
+            .then(res => res.json())
             .then(data => {
                 hideTypingIndicator();
                 const answer = data.answer || data.reply || "No response.";
-                const citations = Array.isArray(data.citations) ? data.citations : [];
-                addBotMessage(answer, { messageId, question: text, citations });
+                addBotMessage(answer, { messageId, question: text });
 
                 // ✅ log answered (điểm bạn đang thiếu)
                 logToGoogle({
@@ -987,6 +1227,47 @@ document.addEventListener('DOMContentLoaded', function () {
         newsBtn.addEventListener("click", () => {
             window.location.href = "news.html";
         });
+    }
+
+
+
+
+    // ⭐ Toggle chế độ xem (Bảng/Thẻ) cho các khối dữ liệu
+    document.addEventListener("click", (e) => {
+        const tab = e.target.closest(".data-view-tab");
+        if (!tab) return;
+
+        const block = tab.closest(".data-block");
+        if (!block) return;
+
+        const target = tab.getAttribute("data-view-target");
+        if (!target) return;
+
+        // Tabs
+        block.querySelectorAll(".data-view-tab").forEach((b) => {
+            const isActive = b === tab;
+            b.classList.toggle("active", isActive);
+            b.setAttribute("aria-selected", isActive ? "true" : "false");
+        });
+
+        // Panels
+        block.querySelectorAll(".data-panel").forEach((panel) => {
+            panel.classList.toggle("active", panel.getAttribute("data-view-panel") === target);
+        });
+
+        // Kéo xuống cho chắc (đặc biệt khi chuyển sang thẻ)
+        scrollToBottom();
+    });
+
+    // ⭐ Auto scroll mạnh hơn: khi DOM thay đổi (bảng / ảnh / typing), luôn kéo xuống cuối
+    try {
+        const chatObserver = new MutationObserver(() => {
+            // nếu user đang scroll lên đọc thì vẫn ưu tiên kéo xuống theo yêu cầu
+            scrollToBottom();
+        });
+        chatObserver.observe(chatContainer, { childList: true, subtree: true });
+    } catch (e) {
+        // ignore
     }
 
 });
