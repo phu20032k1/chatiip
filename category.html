@@ -19,19 +19,19 @@
   <!-- JSON-LD -->
   <script type="application/ld+json" id="jsonLD"></script>
 
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=20251231053000">
 
   <style>
-    body { background:#fff; padding:20px; font-family:system-ui; }
-    #catTitle { font-size:32px; font-weight:800; margin-bottom:20px; }
+    body { background: var(--bg) !important; color: var(--text) !important; padding:20px; font-family:system-ui; }
+    #catTitle { font-size:32px; font-weight:800; margin-bottom:20px; color: var(--title); }
     .cat-item {
       padding:14px 0;
-      border-bottom:1px solid #e5e7eb;
+      border-bottom:1px solid var(--border);
       cursor:pointer;
     }
-    .cat-item-title { font-size:20px; font-weight:600; }
+    .cat-item-title { font-size:20px; font-weight:600; color: var(--title); }
     .cat-item:hover .cat-item-title { color:#2563eb; }
-    .empty { color:#666; padding:30px 0; }
+    .empty { color: var(--muted); padding:30px 0; }
   </style>
 </head>
 
@@ -111,6 +111,6 @@ async function loadCat() {
 loadCat();
 </script>
 
-<script src="auth.js?v=5"></script>
+<script src="auth.js?v=20251231053000"></script>
 </body>
 </html>

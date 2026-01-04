@@ -196,6 +196,14 @@ body {
     border-radius: 18px;
     font-size: 15px;
     line-height: 1.4;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+/* Wide bubble for rich content (tables/charts) */
+.bot-message .message-bubble.wide{
+    max-width: 100%;
+    width: 100%;
 }
 
 .user-bubble {
@@ -613,6 +621,8 @@ body {
     width: 100%;
     max-height: min(65vh, 650px);
     overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 .data-table{
@@ -621,6 +631,24 @@ body {
     border-collapse: separate;
     border-spacing: 0;
     font-size: 13px;
+}
+
+/* Compact table (no forced large min-width) */
+.data-table.data-table-compact{
+    min-width: 0;
+}
+
+@media (max-width: 768px){
+    .data-table-wrap{ max-height: min(55vh, 560px); }
+    .data-table{
+        min-width: 680px;
+        font-size: 12px;
+    }
+    .data-table th,
+    .data-table td{ padding: 8px 10px; }
+    /* Sticky first column can feel glitchy on mobile; disable for smoother UX */
+    .data-table .col-stt{ position: static; }
+    .data-table thead th.col-stt{ position: sticky; left: 0; }
 }
 
 .data-table th,
@@ -880,7 +908,8 @@ body {
     margin-bottom: 14px;
 }
 
-.chip{
+/* Feedback chips (do NOT override data chips in tables) */
+.feedback-chips .chip{
     border: 1px solid #e5e7eb;
     background: #f9fafb;
     color: #111827;
@@ -890,7 +919,7 @@ body {
     font-size: 14px;
 }
 
-.chip.active{
+.feedback-chips .chip.active{
     background: #111827;
     border-color: #111827;
     color: #ffffff;
@@ -1268,3 +1297,64 @@ body{ background-color: var(--bg) !important; color: var(--text) !important; }
   position: relative;
 }
 .account-card{ margin-top: 12px; }
+
+/* =========================
+   CHART IMAGE PREVIEW (MOBILE FRIENDLY)
+   ========================= */
+
+.excel-viz img{
+  cursor: zoom-in;
+}
+
+.img-preview-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1200;
+}
+
+.img-preview-overlay.open{ display: flex; }
+
+body.modal-open{ overflow: hidden; }
+
+.img-preview-inner{
+  width: min(980px, 100%);
+  max-height: 90vh;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  position: relative;
+  box-shadow: 0 22px 70px rgba(0,0,0,0.28);
+}
+
+.img-preview-inner img{
+  width: 100%;
+  height: auto;
+  max-height: 90vh;
+  display: block;
+  object-fit: contain;
+  background: #000;
+}
+
+.img-preview-close{
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.92);
+  color: #111827;
+  cursor: pointer;
+}
+
+body.theme-dark .img-preview-close{
+  background: rgba(17,24,39,0.92);
+  color: #f9fafb;
+}

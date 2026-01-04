@@ -246,6 +246,81 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
 
+    // =========================
+    // Responsive helpers
+    // =========================
+    function isMobileViewport() {
+        try {
+            return window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+        } catch (e) {
+            return window.innerWidth <= 768;
+        }
+    }
+
+    // =========================
+    // Chart image preview overlay (zoom-friendly on mobile)
+    // =========================
+    function ensureImagePreviewOverlay() {
+        let overlay = document.getElementById("imgPreviewOverlay");
+        if (overlay) return overlay;
+
+        overlay = document.createElement("div");
+        overlay.id = "imgPreviewOverlay";
+        overlay.className = "img-preview-overlay";
+        overlay.innerHTML = `
+          <div class="img-preview-inner" role="dialog" aria-modal="true" aria-label="Xem biểu đồ">
+            <button class="img-preview-close" type="button" aria-label="Đóng">
+              <i class="fas fa-times"></i>
+            </button>
+            <img id="imgPreviewTarget" alt="Biểu đồ" />
+          </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const close = () => {
+            overlay.classList.remove("open");
+            document.body.classList.remove("modal-open");
+        };
+
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) close();
+        });
+        overlay.querySelector(".img-preview-close")?.addEventListener("click", close);
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && overlay.classList.contains("open")) close();
+        });
+
+        return overlay;
+    }
+
+    function openImagePreview(src, alt) {
+        const overlay = ensureImagePreviewOverlay();
+        const img = document.getElementById("imgPreviewTarget");
+        if (img) {
+            img.src = src;
+            img.alt = alt || "Biểu đồ";
+        }
+        overlay.classList.add("open");
+        document.body.classList.add("modal-open");
+    }
+
+    function setDataBlockView(block, target) {
+        if (!block) return;
+        const tab = block.querySelector(`.data-view-tab[data-view-target="${target}"]`);
+        if (tab && !tab.classList.contains("active")) tab.click();
+    }
+
+    function autoPreferCardsOnMobile(root) {
+        if (!root || !isMobileViewport()) return;
+        root.querySelectorAll?.(".data-block")?.forEach?.((block) => {
+            if (block.querySelector('.data-view-tab[data-view-target="cards"]')) {
+                setDataBlockView(block, "cards");
+            }
+        });
+    }
+
+
     // ⭐ Auto expand textarea (tự mở rộng ô nhập tin nhắn)
     messageInput.addEventListener("input", function () {
         this.style.height = "auto";                // reset chiều cao -> giúp tính đúng
@@ -474,7 +549,19 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
 
 
+        // Wide bubble for tables/charts so mobile doesn't feel cramped
+        try {
+            const bubble = botMessageElement.querySelector('.message-bubble');
+            if (bubble) {
+                const looksRich = /data-block|data-table|excel-viz/i.test(normalized.html);
+                if (looksRich) bubble.classList.add('wide');
+            }
+        } catch (_) {}
+
         chatContainer.appendChild(botMessageElement);
+
+        // Prefer cards on mobile for better UX
+        try { autoPreferCardsOnMobile(botMessageElement); } catch (_) {}
 
         // ⭐ Auto scroll
         setTimeout(scrollToBottom, 50);
@@ -523,7 +610,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return m ? Number(m[1]) : NaN;
     }
 
-    function buildPriceTable(items) {
+    function buildPriceDataBlock(items, title = "Dữ liệu so sánh giá") {
         const block = document.createElement("div");
         block.className = "data-block";
 
@@ -533,47 +620,84 @@ document.addEventListener('DOMContentLoaded', function () {
             return `
               <tr>
                 <td class="col-stt">${idx + 1}</td>
-                <td>${name}</td>
-                <td class="col-area">${price}</td>
+                <td>${name || "—"}</td>
+                <td class="col-area">${price || "—"}</td>
               </tr>
+            `;
+        }).join("");
+
+        const cards = (items || []).map((it, idx) => {
+            const name = escapeHtmlGlobal(it?.name ?? it?.ten ?? it?.Tên ?? "");
+            const price = escapeHtmlGlobal(it?.price ?? it?.gia ?? it?.Giá ?? "");
+            return `
+              <div class="data-card">
+                <div class="data-card-head">
+                  <div class="data-card-title">${name || "—"}</div>
+                  <div class="data-card-badge">#${idx + 1}</div>
+                </div>
+                <div class="data-card-line">
+                  <div class="data-card-label">Giá</div>
+                  <div class="data-card-value">${price || "—"}</div>
+                </div>
+              </div>
             `;
         }).join("");
 
         block.innerHTML = `
           <div class="data-block-toolbar">
-            <div class="data-block-title">Dữ liệu so sánh giá</div>
+            <div class="data-block-title">${escapeHtmlGlobal(title)}</div>
+            <div class="data-view-tabs" role="tablist" aria-label="Chế độ xem">
+              <button class="data-view-tab active" type="button" data-view-target="table" role="tab" aria-selected="true">
+                <i class="fa-solid fa-table"></i> Bảng
+              </button>
+              <button class="data-view-tab" type="button" data-view-target="cards" role="tab" aria-selected="false">
+                <i class="fa-solid fa-grip"></i> Thẻ
+              </button>
+            </div>
           </div>
-          <div class="data-table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th class="col-stt">#</th>
-                  <th>Khu công nghiệp</th>
-                  <th class="col-area">Giá</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rows || `<tr><td colspan="3">Không có dữ liệu.</td></tr>`}
-              </tbody>
-            </table>
+
+          <div class="data-panel active" data-view-panel="table">
+            <div class="data-table-wrap">
+              <table class="data-table data-table-compact">
+                <thead>
+                  <tr>
+                    <th class="col-stt">#</th>
+                    <th>Khu công nghiệp</th>
+                    <th class="col-area">Giá</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows || `<tr><td colspan="3">Không có dữ liệu.</td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="data-panel" data-view-panel="cards">
+            <div class="data-cards-wrap">
+              <div class="data-cards">
+                ${cards || `<div class="data-card"><div class="data-card-title">Không có dữ liệu.</div></div>`}
+              </div>
+            </div>
           </div>
         `;
+
         return block;
     }
 
     function buildBarChart(items, titleText = "Biểu đồ so sánh giá") {
         const wrap = document.createElement("div");
         wrap.className = "excel-viz-chart";
-        wrap.style.border = "1px solid #e5e7eb";
+        wrap.style.border = "1px solid var(--border)";
         wrap.style.borderRadius = "16px";
-        wrap.style.background = "#ffffff";
+        wrap.style.background = "var(--surface)";
         wrap.style.padding = "12px";
         wrap.style.marginTop = "10px";
 
         const title = document.createElement("div");
         title.style.fontSize = "13px";
         title.style.fontWeight = "700";
-        title.style.color = "#111827";
+        title.style.color = "var(--title)";
         title.style.marginBottom = "10px";
         title.textContent = titleText;
         wrap.appendChild(title);
@@ -603,14 +727,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const left = document.createElement("div");
             left.style.fontSize = "13px";
-            left.style.color = "#111827";
+            left.style.color = "var(--title)";
             left.style.fontWeight = "600";
             left.style.lineHeight = "1.35";
             left.textContent = nameRaw || "—";
 
             const right = document.createElement("div");
             right.style.fontSize = "12px";
-            right.style.color = "#6b7280";
+            right.style.color = "var(--muted)";
             right.style.whiteSpace = "nowrap";
             right.textContent = priceRaw || "—";
 
@@ -619,15 +743,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const barOuter = document.createElement("div");
             barOuter.style.height = "10px";
-            barOuter.style.background = "#f3f4f6";
-            barOuter.style.border = "1px solid #e5e7eb";
+            barOuter.style.background = "var(--surface2)";
+            barOuter.style.border = "1px solid var(--border)";
             barOuter.style.borderRadius = "999px";
             barOuter.style.overflow = "hidden";
 
             const barInner = document.createElement("div");
             barInner.style.height = "100%";
             barInner.style.width = pct ? `${pct}%` : "0%";
-            barInner.style.background = "#111827"; // đồng nhất theme
+            barInner.style.background = "var(--primary-bg)"; // đồng nhất theme
             barInner.style.borderRadius = "999px";
             barOuter.appendChild(barInner);
 
@@ -666,8 +790,9 @@ document.addEventListener('DOMContentLoaded', function () {
             img.style.maxWidth = "100%";
             img.style.display = "block";
             img.style.borderRadius = "16px";
-            img.style.border = "1px solid #e5e7eb";
+            img.style.border = "1px solid var(--border)";
             img.style.boxShadow = "0 12px 30px rgba(0,0,0,0.06)";
+            img.addEventListener("click", () => openImagePreview(img.src, img.alt));
             vizWrap.appendChild(img);
         } else if (Array.isArray(vis.items) && vis.items.length) {
             // Fallback: server không trả base64 → vẽ chart HTML bằng CSS
@@ -676,8 +801,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // luôn kèm bảng cho dễ đối chiếu
         if (Array.isArray(vis.items) && vis.items.length) {
-            vizWrap.appendChild(buildPriceTable(vis.items));
+            vizWrap.appendChild(buildPriceDataBlock(vis.items, "Dữ liệu so sánh giá"));
         }
+
+        // Force wide bubble + prefer cards on mobile
+        try {
+            const bubble = botEl.querySelector('.message-bubble');
+            if (bubble) bubble.classList.add('wide');
+            autoPreferCardsOnMobile(botEl);
+        } catch (_) {}
 
         if (stack && actions) stack.insertBefore(vizWrap, actions);
         else if (stack) stack.appendChild(vizWrap);
