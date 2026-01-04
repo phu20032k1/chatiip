@@ -216,34 +216,63 @@ document.addEventListener('DOMContentLoaded', function () {
     const voiceButton = document.getElementById('voiceButton');
     const fileInput = document.getElementById('fileInput');
 
-    // =========================
-    // ⭐ FIX QUAN TRỌNG: Auto scroll
-    // =========================
-    function scrollToBottom() {
-        // Kéo xuống cuối ở cả 2 trường hợp:
-        // 1) chatContainer có scroll nội bộ
-        // 2) trang (window) mới là phần đang scroll (một số layout)
-        requestAnimationFrame(() => {
-            try {
-                if (chatContainer) {
-                    const canInnerScroll = (chatContainer.scrollHeight - chatContainer.clientHeight) > 2;
-                    if (canInnerScroll) {
-                        chatContainer.scrollTop = chatContainer.scrollHeight;
-                    }
-                }
 
-                // Window scroll: đảm bảo luôn thấy tin nhắn mới + ô nhập
-                const anchor = document.getElementById("messageInputContainer") || chatContainer || document.body;
-                const targetY = anchor.getBoundingClientRect().bottom + window.scrollY + 16;
-                window.scrollTo({ top: Math.min(targetY, document.documentElement.scrollHeight), behavior: "smooth" });
-            } catch (e) {
-                // fallback
-                try {
-                    window.scrollTo(0, document.documentElement.scrollHeight);
-                } catch (_) { }
-            }
-        });
+
+// =========================
+// Mobile viewport + iOS keyboard fix
+// - Uses CSS vars: --app-height, --keyboard-offset
+// =========================
+const __rootStyle = document.documentElement.style;
+
+function __setAppHeight() {
+    try { __rootStyle.setProperty("--app-height", `${window.innerHeight}px`); } catch (_) {}
+}
+
+function __setKeyboardOffset() {
+    try {
+        if (!window.visualViewport) {
+            __rootStyle.setProperty("--keyboard-offset", "0px");
+            return;
+        }
+        const vv = window.visualViewport;
+        const bottomInset = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+        __rootStyle.setProperty("--keyboard-offset", `${bottomInset}px`);
+    } catch (_) {
+        try { __rootStyle.setProperty("--keyboard-offset", "0px"); } catch (_) {}
     }
+}
+
+__setAppHeight();
+__setKeyboardOffset();
+
+window.addEventListener("resize", () => {
+    __setAppHeight();
+    __setKeyboardOffset();
+});
+
+if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", __setKeyboardOffset);
+    window.visualViewport.addEventListener("scroll", __setKeyboardOffset);
+}
+
+// Keep latest message visible when keyboard opens/closes
+messageInput?.addEventListener("focus", () => setTimeout(() => scrollToBottom("auto"), 50));
+messageInput?.addEventListener("blur", () => setTimeout(() => scrollToBottom("auto"), 50));
+
+// =========================
+// ⭐ FIX QUAN TRỌNG: Auto scroll (single-scroll container)
+// =========================
+function scrollToBottom(behavior = "smooth") {
+    if (!chatContainer) return;
+    requestAnimationFrame(() => {
+        try {
+            chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior });
+        } catch (e) {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+    });
+}
+
 
 
     // =========================
@@ -1572,7 +1601,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const newsBtn = document.getElementById("newsBtn");
     if (newsBtn) {
         newsBtn.addEventListener("click", () => {
-            window.location.href = "news.html";
+            window.location.href = "news.html?v=20260104050500";
         });
     }
 

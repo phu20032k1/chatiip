@@ -80,7 +80,7 @@ function renderFeaturedItem(n) {
   `;
 
   const go = () => {
-    window.location.href = `article.html?slug=${n.slug}`;
+    window.location.href = `article.html?slug=${n.slug}&v=20260104050500`;
   };
   featuredEl.querySelector(".featured-image-wrap").onclick = go;
   featuredEl.querySelector("#featuredTitle").onclick = go;
@@ -119,7 +119,7 @@ function renderNewsItem(n) {
   `;
 
   div.onclick = () => {
-    window.location.href = `article.html?slug=${n.slug}`;
+    window.location.href = `article.html?slug=${n.slug}&v=20260104050500`;
   };
 
   return div;

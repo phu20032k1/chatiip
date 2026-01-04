@@ -3,11 +3,34 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bài viết | ChatIIP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<script>
+  window.CHATIIP_VERSION = "20260104050500";
+  (function () {
+    const VERSION_URL = "app-version.json";
+    fetch(VERSION_URL, { cache: "no-store" })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        const v = (j && j.version) ? String(j.version) : (window.CHATIIP_VERSION || "");
+        if (!v) return;
+        try { localStorage.setItem("chatiip_app_version", v); } catch (e) {}
+        const u = new URL(window.location.href);
+        if (u.searchParams.get("v") !== v) {
+          u.searchParams.set("v", v);
+          window.location.replace(u.toString());
+        }
+      })
+      .catch(() => {});
+  })();
+</script>
+<title>Bài viết | ChatIIP</title>
 
     <!-- CSS chung -->
-    <link rel="stylesheet" href="style.css?v=20251231053000">
+    <link rel="stylesheet" href="style.css?v=20260104050500">
 
 
     <!-- ICON -->
@@ -158,7 +181,7 @@
     <!-- HEADER BÀI VIẾT -->
     <header class="news-header">
         <h1>Bài viết</h1>
-        <a href="news.html" class="back-btn">← Tin tức</a>
+        <a href="news.html?v=20260104050500" class="back-btn">← Tin tức</a>
     </header>
 
     <!-- MAIN CONTENT -->
@@ -194,7 +217,7 @@
     <script id="seoJsonLd" type="application/ld+json"></script>
     <script id="breadcrumbJson" type="application/ld+json"></script>
 
-    <script src="article.js?v=20251231053000"></script>
+    <script src="article.js?v=20260104050500"></script>
 
     <!-- SHARE SCRIPT -->
     <script>
@@ -217,7 +240,7 @@
         };
     </script>
 
-    <script src="auth.js?v=20251231053000"></script>
+    <script src="auth.js?v=20260104050500"></script>
 </body>
 
 </html>

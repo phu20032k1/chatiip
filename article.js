@@ -163,7 +163,7 @@ async function loadRelated(currentSlug) {
                 <div class="related-item-title">${n.title}</div>
             `;
             div.onclick = () => {
-                window.location.href = `article.html?slug=${n.slug}`;
+                window.location.href = `article.html?slug=${n.slug}&v=20260104050500`;
             };
             relatedListEl.appendChild(div);
         });

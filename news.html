@@ -3,9 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <title>Tin tức | ChatIIP</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-    <!-- BASE SEO -->
+    
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<script>
+  window.CHATIIP_VERSION = "20260104050500";
+  (function () {
+    const VERSION_URL = "app-version.json";
+    fetch(VERSION_URL, { cache: "no-store" })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        const v = (j && j.version) ? String(j.version) : (window.CHATIIP_VERSION || "");
+        if (!v) return;
+        try { localStorage.setItem("chatiip_app_version", v); } catch (e) {}
+        const u = new URL(window.location.href);
+        if (u.searchParams.get("v") !== v) {
+          u.searchParams.set("v", v);
+          window.location.replace(u.toString());
+        }
+      })
+      .catch(() => {});
+  })();
+</script>
+<!-- BASE SEO -->
     <meta name="description" content="Tin tức mới nhất từ ChatIIP - cập nhật nhanh, chính xác và đầy đủ.">
     <meta name="author" content="ChatIIP">
 
@@ -26,8 +49,8 @@
     <script type="application/ld+json" id="newsJsonLd"></script>
 
     <!-- CSS -->
-    <link rel="stylesheet" href="style.css?v=20251231053000">
-    <link rel="stylesheet" href="news.css?v=20251231053000">
+    <link rel="stylesheet" href="style.css?v=20260104050500">
+    <link rel="stylesheet" href="news.css?v=20260104050500">
 
     <!-- ICON -->
     <link rel="stylesheet"
@@ -59,8 +82,8 @@
             <option value="Khác">Khác</option>
         </select>
 
-        <a href="laws.html" class="back-btn" title="Tra cứu văn bản">⚖️ Văn bản</a>
-        <a href="index.html" class="back-btn">← Chat</a>
+        <a href="laws.html?v=20260104050500" class="back-btn" title="Tra cứu văn bản">⚖️ Văn bản</a>
+        <a href="index.html?v=20260104050500" class="back-btn">← Chat</a>
     </div>
 </header>
 
@@ -73,8 +96,8 @@
     <section class="news-list" id="newsList"></section>
 </div>
 
-<script src="news.js?v=20251231053000"></script>
+<script src="news.js?v=20260104050500"></script>
 
-<script src="auth.js?v=20251231053000"></script>
+<script src="auth.js?v=20260104050500"></script>
 </body>
 </html>

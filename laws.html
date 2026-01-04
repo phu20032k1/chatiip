@@ -3,9 +3,32 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>Văn bản pháp luật | ChatIIP</title>
+  
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<script>
+  window.CHATIIP_VERSION = "20260104050500";
+  (function () {
+    const VERSION_URL = "app-version.json";
+    fetch(VERSION_URL, { cache: "no-store" })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        const v = (j && j.version) ? String(j.version) : (window.CHATIIP_VERSION || "");
+        if (!v) return;
+        try { localStorage.setItem("chatiip_app_version", v); } catch (e) {}
+        const u = new URL(window.location.href);
+        if (u.searchParams.get("v") !== v) {
+          u.searchParams.set("v", v);
+          window.location.replace(u.toString());
+        }
+      })
+      .catch(() => {});
+  })();
+</script>
+<title>Văn bản pháp luật | ChatIIP</title>
 
   <!-- BASE SEO -->
   <meta name="description" content="Tra cứu văn bản pháp luật: tìm kiếm, phân loại, lược đồ và tải về." />
@@ -25,8 +48,8 @@
   <meta name="twitter:image" content="https://chatiip.com/default-og.jpg" />
 
   <!-- CSS -->
-  <link rel="stylesheet" href="style.css?v=20251231053000">
-  <link rel="stylesheet" href="laws.css?v=20251231053000" />
+  <link rel="stylesheet" href="style.css?v=20260104050500">
+  <link rel="stylesheet" href="laws.css?v=20260104050500" />
 
   <!-- ICON -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -75,8 +98,8 @@
         <i class="fa-solid fa-rotate-left"></i>
       </button>
 
-      <a href="news.html" class="laws-btn link" title="Tin tức"><i class="fa-regular fa-newspaper"></i></a>
-      <a href="index.html" class="laws-btn link" title="Chat">← Chat</a>
+      <a href="news.html?v=20260104050500" class="laws-btn link" title="Tin tức"><i class="fa-regular fa-newspaper"></i></a>
+      <a href="index.html?v=20260104050500" class="laws-btn link" title="Chat">← Chat</a>
     </div>
   </header>
 
@@ -124,8 +147,8 @@
   <!-- Tooltip (hover preview) -->
   <div id="hoverTooltip" class="hover-tooltip" aria-hidden="true"></div>
 
-  <script src="laws.js?v=20251231053000"></script>
-<script src="auth.js?v=20251231053000"></script>
+  <script src="laws.js?v=20260104050500"></script>
+<script src="auth.js?v=20260104050500"></script>
 </body>
 
 </html>
