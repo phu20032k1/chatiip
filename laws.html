@@ -10,23 +10,39 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 <script>
-  window.CHATIIP_VERSION = "20260104050500";
-  (function () {
-    const VERSION_URL = "app-version.json";
-    fetch(VERSION_URL, { cache: "no-store" })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => {
-        const v = (j && j.version) ? String(j.version) : (window.CHATIIP_VERSION || "");
-        if (!v) return;
-        try { localStorage.setItem("chatiip_app_version", v); } catch (e) {}
-        const u = new URL(window.location.href);
-        if (u.searchParams.get("v") !== v) {
-          u.searchParams.set("v", v);
-          window.location.replace(u.toString());
-        }
-      })
-      .catch(() => {});
-  })();
+(function () {
+  const STORAGE_KEY = "chatiip_app_version";
+  const FALLBACK_VERSION = "20260106215426";
+  const u = new URL(window.location.href);
+  let v = u.searchParams.get("v") || "";
+  if (!v) { try { v = localStorage.getItem(STORAGE_KEY) || ""; } catch (e) {} }
+  if (!v) v = FALLBACK_VERSION;
+  window.CHATIIP_VERSION = v;
+
+  window.__CHATIIP_ASSET = function (path) {
+    try {
+      if (!path) return path;
+      if (/^https?:\/\//i.test(path)) return path;
+      return path.split("?")[0] + "?v=" + encodeURIComponent(window.CHATIIP_VERSION || "");
+    } catch (e) {
+      return path;
+    }
+  };
+
+  fetch("app-version.json", { cache: "no-store" })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => {
+      const latest = (j && j.version) ? String(j.version) : "";
+      if (!latest) return;
+      try { localStorage.setItem(STORAGE_KEY, latest); } catch (e) {}
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("v") !== latest) {
+        url.searchParams.set("v", latest);
+        window.location.replace(url.toString());
+      }
+    })
+    .catch(() => {});
+})();
 </script>
 <title>Văn bản pháp luật | ChatIIP</title>
 
@@ -48,8 +64,8 @@
   <meta name="twitter:image" content="https://chatiip.com/default-og.jpg" />
 
   <!-- CSS -->
-  <link rel="stylesheet" href="style.css?v=20260104050500">
-  <link rel="stylesheet" href="laws.css?v=20260104050500" />
+  <script>document.write('<link rel=\"stylesheet\" href=\"' + window.__CHATIIP_ASSET('style.css') + '\">');</script>
+  <script>document.write('<link rel=\"stylesheet\" href=\"' + window.__CHATIIP_ASSET('laws.css') + '\">');</script>
 
   <!-- ICON -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" />
@@ -98,8 +114,8 @@
         <i class="fa-solid fa-rotate-left"></i>
       </button>
 
-      <a href="news.html?v=20260104050500" class="laws-btn link" title="Tin tức"><i class="fa-regular fa-newspaper"></i></a>
-      <a href="index.html?v=20260104050500" class="laws-btn link" title="Chat">← Chat</a>
+      <a href="news.html" class="laws-btn link" title="Tin tức"><i class="fa-regular fa-newspaper"></i></a>
+      <a href="index.html" class="laws-btn link" title="Chat">← Chat</a>
     </div>
   </header>
 
@@ -147,8 +163,8 @@
   <!-- Tooltip (hover preview) -->
   <div id="hoverTooltip" class="hover-tooltip" aria-hidden="true"></div>
 
-  <script src="laws.js?v=20260104050500"></script>
-<script src="auth.js?v=20260104050500"></script>
+  <script>document.write('<script src=\"' + window.__CHATIIP_ASSET('laws.js') + '\"><\/script>');</script>
+<script>document.write('<script src=\"' + window.__CHATIIP_ASSET('auth.js') + '\"><\/script>');</script>
 </body>
 
 </html>

@@ -31,6 +31,9 @@ body[data-page="chat"]{
     min-height: var(--app-height, 100vh);
     overflow: hidden; /* only chat container scrolls */
     overscroll-behavior: none;
+    position: fixed;
+    inset: 0;
+    width: 100%;
 }
 
 body[data-page="chat"] .main-container{
@@ -80,13 +83,14 @@ button, a, .input-button, .send-button, .action-btn, .hamburger-btn, .news-btn, 
     width: 100%;
     flex: 1;
     overflow-y: auto;
-    padding: 80px 24px calc(140px + env(safe-area-inset-bottom, 0px));
+    padding: 80px 24px calc(140px + var(--keyboard-offset, 0px) + env(safe-area-inset-bottom, 0px));
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
     transition: all 0.3s ease;
     -webkit-overflow-scrolling: touch;
+    scroll-padding-bottom: calc(160px + var(--keyboard-offset, 0px) + env(safe-area-inset-bottom, 0px));
 }
 
 .chat-container.has-messages {
@@ -1470,6 +1474,10 @@ body.theme-dark .img-preview-close{
   height: 420px;
 }
 
+/* Prevent chat container from scrolling when interacting with the map (mobile) */
+.iip-map-wrap{ touch-action: none; }
+
+
 @media (max-width: 520px){
   .iip-map-wrap{ height: 320px; }
 }
@@ -1510,3 +1518,11 @@ body.theme-dark .img-preview-close{
   font-size: 18px;
 }
 .maplibregl-ctrl-attrib{ font-size: 10px; }
+
+
+/* Small-height phones (landscape / small screens): avoid composer covering half screen */
+@media (max-height: 600px){
+  .message-input-container.centered{
+    bottom: 22%;
+  }
+}

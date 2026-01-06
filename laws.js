@@ -148,8 +148,8 @@ function renderDocItem(doc) {
   const hoverPreview = shortText(doc.textPreview || doc.trichYeu || "", 600);
 
   const downloadUrl = doc._id ? `${API_DOCS}/${doc._id}/download` : "#";
-  const viewUrl = doc.slug ? `doc.html?slug=${encodeURIComponent(doc.slug)}&v=20260104050500` : "#";
-  const outlineUrl = doc.slug ? `doc.html?slug=${encodeURIComponent(doc.slug)}&tab=outline&v=20260104050500` : "#";
+  const viewUrl = doc.slug ? `doc.html?slug=${encodeURIComponent(doc.slug)}&v=${encodeURIComponent(window.CHATIIP_VERSION||'')}` : "#";
+  const outlineUrl = doc.slug ? `doc.html?slug=${encodeURIComponent(doc.slug)}&tab=outline&v=${encodeURIComponent(window.CHATIIP_VERSION||'')}` : "#";
 
   el.setAttribute("data-preview", hoverPreview);
 

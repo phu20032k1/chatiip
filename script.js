@@ -372,6 +372,16 @@ function createIipMapCard({ title, subtitle }) {
     const mapWrap = document.createElement("div");
     mapWrap.className = "iip-map-wrap";
 
+    // Prevent parent chat container from scrolling while user interacts with the map
+    // (important on mobile where drag/zoom can bubble as scroll)
+    try {
+        const stop = (ev) => { try { ev.stopPropagation(); } catch (_) {} };
+        ["wheel","touchmove","touchstart","pointerdown","pointermove"].forEach((t) => {
+            mapWrap.addEventListener(t, stop, { capture: true, passive: false });
+        });
+    } catch (_) {}
+
+
     const hint = document.createElement("div");
     hint.className = "iip-map-hint";
     hint.innerHTML = `• Click vào cụm để zoom. • Click vào điểm để xem popup.`;
@@ -2331,22 +2341,8 @@ function scrollToBottom(behavior = "smooth", force = false) {
         if (isRecording) stopSpeechToText();
     };
 
+    // (Removed) Mobile focus/blur auto-scroll: caused jump when opening keyboard on phones.
 
-    // ====================  HANDLE MOBILE RESIZE  ====================
-    function handleMobileResize() {
-        if (window.innerWidth <= 768) {
-            messageInput.addEventListener('focus', function () {
-                setTimeout(scrollToBottom, 300);
-            });
-
-            messageInput.addEventListener('blur', function () {
-                setTimeout(scrollToBottom, 300);
-            });
-        }
-    }
-
-    handleMobileResize();
-    window.addEventListener('resize', handleMobileResize);
 
 
     // ============================================================
@@ -2399,7 +2395,7 @@ function scrollToBottom(behavior = "smooth", force = false) {
     const newsBtn = document.getElementById("newsBtn");
     if (newsBtn) {
         newsBtn.addEventListener("click", () => {
-            window.location.href = "news.html?v=20260104050500";
+            window.location.href = "news.html?v=" + encodeURIComponent(window.CHATIIP_VERSION || "");
         });
     }
 
