@@ -372,13 +372,35 @@ function createIipMapCard({ title, subtitle }) {
     const mapWrap = document.createElement("div");
     mapWrap.className = "iip-map-wrap";
 
-    // Prevent parent chat container from scrolling while user interacts with the map
-    // (important on mobile where drag/zoom can bubble as scroll)
+    // ✅ Mobile fix: allow MapLibre nhận touch/pointer để kéo/zoom
+    // nhưng KHÓA scroll của chat khi người dùng đang tương tác với bản đồ.
     try {
-        const stop = (ev) => { try { ev.stopPropagation(); } catch (_) {} };
-        ["wheel","touchmove","touchstart","pointerdown","pointermove"].forEach((t) => {
-            mapWrap.addEventListener(t, stop, { capture: true, passive: false });
-        });
+        const chat = document.getElementById('chatContainer');
+
+        const lock = () => { try { chat?.classList.add('map-interacting'); } catch (_) {} };
+        const unlock = () => { try { chat?.classList.remove('map-interacting'); } catch (_) {} };
+
+        // Touch: chặn scroll của chat (preventDefault) nhưng không stopPropagation
+        mapWrap.addEventListener('touchstart', lock, { passive: true });
+        mapWrap.addEventListener('touchend', unlock, { passive: true });
+        mapWrap.addEventListener('touchcancel', unlock, { passive: true });
+        mapWrap.addEventListener('touchmove', (e) => {
+            lock();
+            try { e.preventDefault(); } catch (_) {}
+        }, { passive: false });
+
+        // Pointer: khi giữ/drag (Android/Chrome)
+        mapWrap.addEventListener('pointerdown', lock, { passive: true });
+        mapWrap.addEventListener('pointerup', unlock, { passive: true });
+        mapWrap.addEventListener('pointercancel', unlock, { passive: true });
+
+        // Wheel (desktop trackpad): chặn scroll của chat để zoom map mượt
+        mapWrap.addEventListener('wheel', (e) => {
+            lock();
+            try { e.preventDefault(); } catch (_) {}
+            // thả lock nhanh để người dùng vẫn cuộn chat sau khi thôi zoom
+            setTimeout(unlock, 120);
+        }, { passive: false });
     } catch (_) {}
 
 
@@ -1316,33 +1338,42 @@ function scrollToBottom(behavior = "smooth", force = false) {
         let finalMessage = rawMessage ?? "";
 
         try {
-            let raw = String(rawMessage ?? "");
+            let parsed = null;
 
-            // B1: loại bỏ ký tự xuống dòng không hợp lệ
-            raw = raw.replace(/\n/g, "").trim();
+            // ✅ Trường hợp server trả object/array trực tiếp (không phải string)
+            if (rawMessage && typeof rawMessage === "object") {
+                parsed = rawMessage;
+            } else {
+                let raw = String(rawMessage ?? "");
+                raw = raw.trim();
 
-            let parsed;
-
-            // B2: parse thử lần 1
-            try { parsed = JSON.parse(raw); } catch (e) { }
-
-            // B3: nếu vẫn là string → parse lần 2
-            if (parsed && typeof parsed === "string") {
-                try { parsed = JSON.parse(parsed); } catch (e) { }
+                // chỉ thử parse nếu nhìn giống JSON
+                const looksJson = /^[\[{]/.test(raw);
+                if (looksJson) {
+                    // parse thử nhiều lần vì đôi khi JSON bị bọc string nhiều lớp
+                    try { parsed = JSON.parse(raw); } catch (_) {}
+                    if (parsed && typeof parsed === "string") { try { parsed = JSON.parse(parsed); } catch (_) {} }
+                    if (parsed && typeof parsed === "string") { try { parsed = JSON.parse(parsed); } catch (_) {} }
+                }
             }
 
-            // B4: nếu vẫn là string → parse lần 3
-            if (parsed && typeof parsed === "string") {
-                try { parsed = JSON.parse(parsed); } catch (e) { }
-            }
+            // ✅ Render bảng + danh sách (thẻ) thay vì [object Object]
+            if (parsed && typeof parsed === "object") {
+                const arr =
+                    (Array.isArray(parsed.data) && parsed.data) ||
+                    (Array.isArray(parsed.items) && parsed.items) ||
+                    (Array.isArray(parsed.results) && parsed.results) ||
+                    (Array.isArray(parsed.list) && parsed.list) ||
+                    null;
 
-            // B5: check object dạng { data: [...] }
-            if (parsed && typeof parsed === "object" && Array.isArray(parsed.data)) {
-                finalMessage = jsonToIndustrialTableV2(parsed.data);
-            }
-            // B6: trả về array trực tiếp
-            else if (Array.isArray(parsed)) {
-                finalMessage = jsonToIndustrialTableV2(parsed);
+                if (Array.isArray(arr)) {
+                    finalMessage = jsonToIndustrialTableV2(arr);
+                } else if (Array.isArray(parsed)) {
+                    finalMessage = jsonToIndustrialTableV2(parsed);
+                } else {
+                    // fallback: hiển thị JSON đẹp (đỡ khó chịu hơn object)
+                    finalMessage = `<pre class="json-block">${escapeHtmlGlobal(JSON.stringify(parsed, null, 2))}</pre>`;
+                }
             } else {
                 finalMessage = rawMessage;
             }
@@ -2451,3 +2482,4 @@ function scrollToBottom(behavior = "smooth", force = false) {
     }
 
 });
+

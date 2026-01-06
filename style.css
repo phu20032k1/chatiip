@@ -93,6 +93,13 @@ button, a, .input-button, .send-button, .action-btn, .hamburger-btn, .news-btn, 
     scroll-padding-bottom: calc(160px + var(--keyboard-offset, 0px) + env(safe-area-inset-bottom, 0px));
 }
 
+/* Khi người dùng thao tác trên bản đồ: khóa scroll chat để kéo/zoom map không bị "cuộn" */
+.chat-container.map-interacting{
+    overflow: hidden;
+    -webkit-overflow-scrolling: auto;
+    overscroll-behavior: contain;
+}
+
 .chat-container.has-messages {
     justify-content: flex-start;
     padding-top: 80px;
@@ -264,6 +271,24 @@ button, a, .input-button, .send-button, .action-btn, .hamburger-btn, .news-btn, 
 .bot-bubble {
     background: #f3f4f6;
     color: #111827;
+}
+
+/* Pretty JSON fallback (khi bot trả object mà không map được sang bảng) */
+.json-block{
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(0,0,0,0.08);
+    background: rgba(0,0,0,0.04);
+    font-size: 12px;
+    line-height: 1.35;
+    overflow: auto;
+    max-height: 320px;
+    white-space: pre;
+}
+body.theme-dark .json-block{
+    border-color: rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.06);
 }
 
 /* FILE MESSAGE */
