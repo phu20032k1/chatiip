@@ -1,7 +1,3 @@
-/* ========================= */
-/*   TOÀN BỘ CSS CHATBOT     */
-/*   (GIỮ NGUYÊN 100%)       */
-/* ========================= */
 
 * {
     margin: 0;
@@ -1410,3 +1406,107 @@ body.theme-dark .img-preview-close{
   background: rgba(17,24,39,0.92);
   color: #f9fafb;
 }
+
+
+/* === IIP MAP === */
+.iip-map-card{
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.06);
+}
+
+.iip-map-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  padding: 12px 12px 8px 12px;
+}
+
+.iip-map-title{
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--title);
+  line-height: 1.25;
+}
+
+.iip-map-subtitle{
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text);
+  opacity: .9;
+}
+
+.iip-map-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.iip-map-btn{
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--title);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.iip-map-btn:hover{ filter: brightness(0.98); }
+
+.iip-map-btn i{ font-size: 12px; }
+
+.iip-map-wrap{
+  width: 100%;
+  height: 420px;
+}
+
+@media (max-width: 520px){
+  .iip-map-wrap{ height: 320px; }
+}
+
+.iip-map-hint{
+  padding: 10px 12px 12px 12px;
+  font-size: 12px;
+  color: var(--text);
+  opacity: .9;
+  border-top: 1px solid var(--border);
+}
+
+.iip-map-error{
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.mapboxgl-popup-content{
+  border-radius: 14px !important;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+  font-family: inherit;
+}
+.mapboxgl-popup-close-button{
+  font-size: 18px;
+}
+.mapboxgl-ctrl-attrib{ font-size: 10px; }
+
+/* MapLibre popup (same styling) */
+.maplibregl-popup-content{
+  border-radius: 14px !important;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+  font-family: inherit;
+}
+.maplibregl-popup-close-button{
+  font-size: 18px;
+}
+.maplibregl-ctrl-attrib{ font-size: 10px; }

@@ -51,6 +51,798 @@ function escapeHtmlGlobal(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
+
+// ====================  IIP MAP (INDUSTRIAL ZONES)  ====================
+// Dùng MapLibre (KHÔNG cần token) + dữ liệu GeoJSON (industrial_zones.geojson)
+const IIP_GEOJSON_PATH = "industrial_zones.geojson";
+const IIP_GEOJSON_URL = `${IIP_GEOJSON_PATH}?v=${encodeURIComponent(window.CHATIIP_VERSION || "")}`;
+
+const VN_PROVINCES_PATH = "vn_provinces.geojson";
+const VN_PROVINCES_URL = `${VN_PROVINCES_PATH}?v=${encodeURIComponent(window.CHATIIP_VERSION || "")}`;
+
+let __vnProvPromise = null;
+let __vnProvIndex = null;
+
+let __iipGeoPromise = null;
+let __iipIndex = null;
+
+// Chuẩn hoá tiếng Việt: bỏ dấu + lowercase để match ổn định
+function normalizeViText(input) {
+    return String(input ?? "")
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function isIndustrialQuery(question) {
+    const t = normalizeViText(question);
+    return /(khu cong nghiep|kcn|cum cong nghiep|ccn|industrial\s*zone)/.test(t);
+}
+
+function buildIipIndex(geojson) {
+    const features = Array.isArray(geojson?.features) ? geojson.features : [];
+    const provincesSet = new Set();
+
+    for (const f of features) {
+        const p = String(f?.properties?.province ?? "").trim();
+        if (p) provincesSet.add(p);
+    }
+    const provinces = Array.from(provincesSet).sort((a, b) => a.localeCompare(b, "vi"));
+
+    const normProvinceToReal = new Map();
+    provinces.forEach(p => normProvinceToReal.set(normalizeViText(p), p));
+
+    return { features, provinces, normProvinceToReal };
+}
+
+async function getIndustrialGeojson() {
+    // Offline-friendly: nếu đã có data global (từ industrial_zones_data.js) thì dùng luôn
+    if (window.IIP_GEOJSON_DATA && window.IIP_GEOJSON_DATA.features) {
+        __iipIndex = buildIipIndex(window.IIP_GEOJSON_DATA);
+        return window.IIP_GEOJSON_DATA;
+    }
+
+    if (__iipGeoPromise) return __iipGeoPromise;
+
+    __iipGeoPromise = fetch(IIP_GEOJSON_URL, { cache: "no-store" })
+        .then(r => {
+            if (!r.ok) throw new Error(`Không tải được ${IIP_GEOJSON_PATH} (HTTP ${r.status})`);
+            return r.json();
+        })
+        .then(j => {
+            __iipIndex = buildIipIndex(j);
+            return j;
+        })
+        .catch(err => {
+            console.warn("IIP GeoJSON load error:", err);
+            __iipGeoPromise = null; // cho phép retry
+            throw err;
+        });
+
+    return __iipGeoPromise;
+}
+
+async function getProvinceGeojson() {
+    // Offline-friendly: nếu đã có data global (từ vn_provinces_data.js) thì dùng luôn
+    if (window.VN_PROVINCES_GEOJSON && window.VN_PROVINCES_GEOJSON.features) {
+        if (!__vnProvIndex) {
+            __vnProvIndex = buildProvinceIndex(window.VN_PROVINCES_GEOJSON);
+        }
+        return window.VN_PROVINCES_GEOJSON;
+    }
+
+    if (__vnProvPromise) return __vnProvPromise;
+
+    __vnProvPromise = fetch(VN_PROVINCES_URL, { cache: "no-store" })
+        .then(r => {
+            if (!r.ok) throw new Error(`Không tải được ${VN_PROVINCES_PATH} (HTTP ${r.status})`);
+            return r.json();
+        })
+        .then(j => {
+            __vnProvIndex = buildProvinceIndex(j);
+            return j;
+        })
+        .catch(err => {
+            console.warn("VN provinces GeoJSON load error:", err);
+            __vnProvPromise = null;
+            throw err;
+        });
+
+    return __vnProvPromise;
+}
+
+function buildProvinceIndex(geojson) {
+    const features = Array.isArray(geojson?.features) ? geojson.features : [];
+    const normToName = new Map();
+    for (const f of features) {
+        const name = String(f?.properties?.NAME_1 || f?.properties?.name || "").trim();
+        if (!name) continue;
+        normToName.set(normalizeViText(name), name);
+    }
+    return { features, normToName };
+}
+
+function mapProvinceNameToGeo(provinceText) {
+    const norm = normalizeViText(provinceText);
+    if (!norm || !__vnProvIndex?.normToName) return provinceText || "";
+    return __vnProvIndex.normToName.get(norm) || provinceText || "";
+}
+
+function extractProvinceFromText(question) {
+    const t = normalizeViText(question);
+    if (!__iipIndex?.normProvinceToReal) return "";
+    for (const [norm, real] of __iipIndex.normProvinceToReal.entries()) {
+        if (norm && t.includes(norm)) return real;
+    }
+    return "";
+}
+
+function buildFeaturePopupHtml(feature) {
+    const p = feature?.properties || {};
+    const name = escapeHtmlGlobal(p.name || "Khu công nghiệp");
+    const province = escapeHtmlGlobal(p.province || "");
+    const address = escapeHtmlGlobal(p.address || "");
+    const price = escapeHtmlGlobal(p.price || "");
+    const acreage = (p.acreage !== undefined && p.acreage !== null) ? escapeHtmlGlobal(String(p.acreage)) : "";
+    const occ = (p.occupancy !== undefined && p.occupancy !== null) ? escapeHtmlGlobal(String(p.occupancy)) : "";
+
+    const coords = feature?.geometry?.coordinates || [];
+    const lng = Number(coords[0]);
+    const lat = Number(coords[1]);
+
+    const googleQuery = encodeURIComponent(`${p.name || ""} ${p.address || ""}`.trim() || `${lat},${lng}`);
+    const gmaps = `https://www.google.com/maps/search/?api=1&query=${googleQuery}`;
+
+    const rows = [
+        province ? `<div><b>Tỉnh:</b> ${province}</div>` : "",
+        address ? `<div><b>Địa chỉ:</b> ${address}</div>` : "",
+        price ? `<div><b>Giá:</b> ${price}</div>` : "",
+        acreage ? `<div><b>Diện tích:</b> ${acreage} ha</div>` : "",
+        (occ !== "" && occ !== "null") ? `<div><b>Lấp đầy:</b> ${occ}%</div>` : "",
+        `<div style="margin-top:8px;"><a class="chat-link" href="${gmaps}" target="_blank" rel="noopener noreferrer">Mở trên Google Maps</a></div>`
+    ].filter(Boolean).join("");
+
+    return `<div style="min-width:220px"><div style="font-weight:800;margin-bottom:6px">${name}</div>${rows}</div>`;
+}
+
+function uniqByCodeOrName(features) {
+    const seen = new Set();
+    const out = [];
+    for (const f of features || []) {
+        const p = f?.properties || {};
+        const key = String(p.code || normalizeViText(p.name || "")).trim();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push(f);
+    }
+    return out;
+}
+
+function matchFeaturesByItemNames(items, allFeatures) {
+    const names = (items || [])
+        .map(it => it?.name ?? it?.ten ?? it?.Tên ?? it?.Name ?? "")
+        .map(s => String(s || "").trim())
+        .filter(Boolean);
+
+    if (!names.length) return [];
+
+    const out = [];
+    const features = allFeatures || [];
+
+    for (const nm of names) {
+        const n = normalizeViText(nm);
+        if (!n) continue;
+
+        let best = null;
+        for (const f of features) {
+            const fname = normalizeViText(f?.properties?.name || "");
+            if (!fname) continue;
+
+            if (fname === n || fname.includes(n) || n.includes(fname)) {
+                best = f;
+                break;
+            }
+        }
+        if (best) out.push(best);
+    }
+
+    return uniqByCodeOrName(out);
+}
+
+
+function findBestFeatureByName(name, candidates) {
+    const n = normalizeViText(name);
+    if (!n) return null;
+    let best = null;
+    for (const f of candidates || []) {
+        const fname = normalizeViText(f?.properties?.name || "");
+        if (!fname) continue;
+        if (fname === n || fname.includes(n) || n.includes(fname)) { best = f; break; }
+    }
+    return best;
+}
+
+function focusFeatureOnMap(map, feature) {
+    try {
+        if (!map || !feature) return;
+        const c = feature?.geometry?.coordinates;
+        if (!Array.isArray(c) || c.length < 2) return;
+        const center = [Number(c[0]), Number(c[1])];
+        map.easeTo({ center, zoom: 12, duration: 650 });
+
+        new maplibregl.Popup({ closeButton: true, closeOnClick: true })
+            .setLngLat(center)
+            .setHTML(buildFeaturePopupHtml(feature))
+            .addTo(map);
+    } catch (_) {}
+}
+
+function filterFeaturesForQuestion(question, geojson) {
+    const idx = __iipIndex || buildIipIndex(geojson);
+    const features = idx.features || [];
+
+    const province = extractProvinceFromText(question);
+    let filtered = province
+        ? features.filter(f => String(f?.properties?.province || "").trim() === province)
+        : features.slice();
+
+    // lấy token tìm kiếm (trừ stopwords) để match tên/địa chỉ
+    const t = normalizeViText(question);
+    const stop = new Set(["khu", "cong", "nghiep", "cum", "kcn", "ccn", "gia", "thue", "dat", "nha", "xuong", "tai", "o", "co", "la", "nhung", "bao", "nhieu", "so", "sanh", "gan", "nhat"]);
+    const tokens = t.split(" ").filter(w => w.length >= 4 && !stop.has(w)).slice(0, 6);
+
+    if (tokens.length) {
+        filtered = filtered.filter(f => {
+            const name = normalizeViText(f?.properties?.name || "");
+            const addr = normalizeViText(f?.properties?.address || "");
+            // match tất cả token
+            return tokens.every(tok => name.includes(tok) || addr.includes(tok));
+        });
+    }
+
+    // limit để map nhẹ (cluster vẫn ok nhưng UI mượt hơn)
+    if (filtered.length > 400) filtered = filtered.slice(0, 400);
+    return { filtered, province };
+}
+
+function buildGeojsonFromFeatures(features) {
+    return {
+        type: "FeatureCollection",
+        features: (features || []).filter(Boolean)
+    };
+}
+
+function createIipMapCard({ title, subtitle }) {
+    const card = document.createElement("div");
+    card.className = "iip-map-card";
+
+    const head = document.createElement("div");
+    head.className = "iip-map-head";
+
+    const left = document.createElement("div");
+    left.style.minWidth = "0";
+
+    const t = document.createElement("div");
+    t.className = "iip-map-title";
+    t.textContent = title || "Bản đồ khu công nghiệp";
+
+    const sub = document.createElement("div");
+    sub.className = "iip-map-subtitle";
+    sub.textContent = subtitle || "Bấm vào điểm để xem chi tiết.";
+
+    left.appendChild(t);
+    left.appendChild(sub);
+
+    const actions = document.createElement("div");
+    actions.className = "iip-map-actions";
+
+    const btnFit = document.createElement("button");
+    btnFit.className = "iip-map-btn";
+    btnFit.type = "button";
+    btnFit.innerHTML = '<i class="fa-solid fa-maximize"></i> Vừa khít';
+
+    const btnTerrain = document.createElement("button");
+    btnTerrain.className = "iip-map-btn";
+    btnTerrain.type = "button";
+    btnTerrain.innerHTML = '<i class="fa-solid fa-mountain"></i> Địa hình';
+    btnTerrain.dataset.mode = "osm";
+
+    const btnProvinces = document.createElement("button");
+    btnProvinces.className = "iip-map-btn";
+    btnProvinces.type = "button";
+    btnProvinces.innerHTML = '<i class="fa-solid fa-layer-group"></i> Tỉnh';
+    btnProvinces.dataset.on = "0";
+
+    const btnToggle = document.createElement("button");
+    btnToggle.className = "iip-map-btn";
+    btnToggle.type = "button";
+    btnToggle.innerHTML = '<i class="fa-solid fa-down-left-and-up-right-to-center"></i> Thu gọn';
+
+    actions.appendChild(btnFit);
+    actions.appendChild(btnTerrain);
+    actions.appendChild(btnProvinces);
+    actions.appendChild(btnToggle);
+
+    head.appendChild(left);
+    head.appendChild(actions);
+
+    const mapWrap = document.createElement("div");
+    mapWrap.className = "iip-map-wrap";
+
+    const hint = document.createElement("div");
+    hint.className = "iip-map-hint";
+    hint.innerHTML = `• Click vào cụm để zoom. • Click vào điểm để xem popup.`;
+
+    card.appendChild(head);
+    card.appendChild(mapWrap);
+    card.appendChild(hint);
+
+    return { card, mapWrap, btnFit, btnToggle, btnTerrain, btnProvinces, hint, subEl: sub };
+}
+
+
+function createOsmStyle() {
+    // 2 lớp nền: OSM (mặc định) + Địa hình (OpenTopoMap) + hillshade nhẹ
+    return {
+        version: 8,
+        sources: {
+            osm: {
+                type: "raster",
+                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                tileSize: 256,
+                attribution: "© OpenStreetMap contributors"
+            },
+            topo: {
+                type: "raster",
+                tiles: ["https://a.tile.opentopomap.org/{z}/{x}/{y}.png","https://b.tile.opentopomap.org/{z}/{x}/{y}.png","https://c.tile.opentopomap.org/{z}/{x}/{y}.png"],
+                tileSize: 256,
+                attribution: "© OpenTopoMap (SRTM)"
+            },
+            hillshade: {
+                type: "raster",
+                tiles: ["https://tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png"],
+                tileSize: 256,
+                attribution: "Hillshade: Wikimedia Labs"
+            }
+        },
+        layers: [
+            { id: "osm", type: "raster", source: "osm", layout: { visibility: "visible" } },
+            { id: "topo", type: "raster", source: "topo", layout: { visibility: "none" } },
+            { id: "hillshade", type: "raster", source: "hillshade", layout: { visibility: "none" }, paint: { "raster-opacity": 0.35 } }
+        ]
+    };
+}
+
+function setBasemapMode(map, mode = "osm") {
+    try {
+        const showOsm = mode !== "topo";
+        const showTopo = mode === "topo";
+        if (map.getLayer("osm")) map.setLayoutProperty("osm", "visibility", showOsm ? "visible" : "none");
+        if (map.getLayer("topo")) map.setLayoutProperty("topo", "visibility", showTopo ? "visible" : "none");
+        if (map.getLayer("hillshade")) map.setLayoutProperty("hillshade", "visibility", showTopo ? "visible" : "none");
+    } catch (_) {}
+}
+
+function setProvinceLayerVisible(map, visible) {
+    try {
+        const v = visible ? "visible" : "none";
+        ["province-fill", "province-line", "province-highlight", "province-label"].forEach(id => {
+            if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", v);
+        });
+    } catch (_) {}
+}
+
+function ensureMapIcons(map) {
+    // icon trắng đơn giản (SVG) để hiển thị trên nền tròn
+    const kcnSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="white" d="M3 21V10l7-4v3l7-4v16H3zm2-2h2v-2H5v2zm0-4h2v-2H5v2zm4 4h2v-2H9v2zm0-4h2v-2H9v2zm4 4h2v-2h-2v2zm0-4h2v-2h-2v2z"/></svg>`;
+    const ccnSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="white" d="M4 21V8l8-5 8 5v13H4zm2-2h3v-4H6v4zm5 0h3V9h-3v10zm5 0h3v-6h-3v6z"/></svg>`;
+
+    const defs = [
+        { name: 'kcn-icon', svg: kcnSvg },
+        { name: 'ccn-icon', svg: ccnSvg }
+    ];
+
+    const tasks = defs.map(({ name, svg }) => {
+        if (map.hasImage(name)) return Promise.resolve();
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                try { map.addImage(name, img, { pixelRatio: 2 }); } catch (_) {}
+                resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+        });
+    });
+
+    return Promise.all(tasks);
+}
+
+async function addProvinceLayers(map, selectedProvinceText = "") {
+    try {
+        const provGeo = await getProvinceGeojson().catch(() => null);
+        if (!provGeo) return;
+
+        const sourceId = 'provinces';
+        if (!map.getSource(sourceId)) {
+            map.addSource(sourceId, { type: 'geojson', data: provGeo });
+        }
+
+        // lớp fill mờ để bắt hover
+        if (!map.getLayer('province-fill')) {
+            map.addLayer({
+                id: 'province-fill',
+                type: 'fill',
+                source: sourceId,
+                paint: { 'fill-color': '#94a3b8', 'fill-opacity': 0.06 },
+                layout: { visibility: 'none' }
+            });
+        }
+
+        if (!map.getLayer('province-line')) {
+            map.addLayer({
+                id: 'province-line',
+                type: 'line',
+                source: sourceId,
+                paint: { 'line-color': '#64748b', 'line-width': 1 },
+                layout: { visibility: 'none' }
+            });
+        }
+
+        if (!map.getLayer('province-highlight')) {
+            map.addLayer({
+                id: 'province-highlight',
+                type: 'fill',
+                source: sourceId,
+                filter: ['==', ['get', 'NAME_1'], ''],
+                paint: { 'fill-color': '#3b82f6', 'fill-opacity': 0.12, 'fill-outline-color': '#2563eb' },
+                layout: { visibility: 'none' }
+            });
+        }
+
+        // label (tắt mặc định vì có thể rối)
+        if (!map.getLayer('province-label')) {
+            map.addLayer({
+                id: 'province-label',
+                type: 'symbol',
+                source: sourceId,
+                layout: {
+                    'text-field': ['get', 'NAME_1'],
+                    'text-size': 11,
+                    'text-allow-overlap': false,
+                    'text-anchor': 'center',
+                    visibility: 'none'
+                },
+                paint: { 'text-color': '#475569', 'text-halo-color': '#ffffff', 'text-halo-width': 1 }
+            });
+        }
+
+        // highlight nếu có tỉnh trong câu hỏi
+        const mapped = mapProvinceNameToGeo(selectedProvinceText);
+        if (mapped && map.getLayer('province-highlight')) {
+            map.setFilter('province-highlight', ['==', ['get', 'NAME_1'], mapped]);
+        }
+
+    } catch (e) {
+        console.warn('addProvinceLayers error', e);
+    }
+}
+
+function fitBoundsToFeatures(map, features) {
+    try {
+        if (!features || !features.length) return;
+        const bounds = new maplibregl.LngLatBounds();
+        for (const f of features) {
+            const c = f?.geometry?.coordinates;
+            if (Array.isArray(c) && c.length >= 2) bounds.extend([Number(c[0]), Number(c[1])]);
+        }
+        if (!bounds.isEmpty()) {
+            map.fitBounds(bounds, { padding: 40, maxZoom: 12, duration: 600 });
+        }
+    } catch (e) { }
+}
+
+function renderIipMap(mapWrap, geojson, features, meta = {}) {
+    if (typeof maplibregl === "undefined") {
+        mapWrap.innerHTML = `<div class="iip-map-error">⚠️ Không tải được thư viện bản đồ (maplibre-gl.js).</div>`;
+        return null;
+    }
+
+    // Nếu mapWrap đã có map trước đó → xoá
+    try {
+        if (mapWrap.__iipMap && typeof mapWrap.__iipMap.remove === "function") {
+            mapWrap.__iipMap.remove();
+        }
+    } catch (_) { }
+
+    const map = new maplibregl.Map({
+        container: mapWrap,
+        style: createOsmStyle(),
+        center: [105.8342, 21.0278],
+        zoom: 5.1
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
+
+    const useCluster = (features?.length || 0) > 40;
+    const data = buildGeojsonFromFeatures(features?.length ? features : (geojson?.features || []));
+
+    map.on("load", async () => {
+        await ensureMapIcons(map);
+        // Province layer (tắt mặc định)
+        await addProvinceLayers(map, meta?.province || "");
+
+        map.addSource("iip", {
+            type: "geojson",
+            data,
+            cluster: useCluster,
+            clusterMaxZoom: 12,
+            clusterRadius: 42
+        });
+
+        if (useCluster) {
+            map.addLayer({
+                id: "clusters",
+                type: "circle",
+                source: "iip",
+                filter: ["has", "point_count"],
+                paint: {
+                    "circle-radius": ["step", ["get", "point_count"], 18, 50, 22, 200, 28],
+                    "circle-color": "#3b82f6",
+                    "circle-opacity": 0.85
+                }
+            });
+
+            map.addLayer({
+                id: "cluster-count",
+                type: "symbol",
+                source: "iip",
+                filter: ["has", "point_count"],
+                layout: {
+                    "text-field": ["get", "point_count_abbreviated"],
+                    "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+                    "text-size": 12
+                },
+                paint: { "text-color": "#ffffff" }
+            });
+        }
+
+        // nền tròn theo loại (KCN/CCN)
+        map.addLayer({
+            id: "point-halo",
+            type: "circle",
+            source: "iip",
+            filter: ["!", ["has", "point_count"]],
+            paint: {
+                "circle-radius": 11,
+                "circle-color": [
+                    "case",
+                    ["==", ["get", "kind"], "KCN"], "#2563eb",
+                    ["==", ["get", "kind"], "CCN"], "#f97316",
+                    "#ef4444"
+                ],
+                "circle-opacity": 0.88,
+                "circle-stroke-width": 2,
+                "circle-stroke-color": "#ffffff"
+            }
+        });
+
+        map.addLayer({
+            id: "points",
+            type: "symbol",
+            source: "iip",
+            filter: ["!", ["has", "point_count"]],
+            layout: {
+                "icon-image": [
+                    "case",
+                    ["==", ["get", "kind"], "CCN"], "ccn-icon",
+                    "kcn-icon"
+                ],
+                "icon-size": 0.95,
+                "icon-allow-overlap": true,
+                "icon-anchor": "center"
+            }
+        });
+
+        // click cluster → zoom
+        if (useCluster) {
+            map.on("click", "clusters", (e) => {
+                const features = map.queryRenderedFeatures(e.point, { layers: ["clusters"] });
+                const clusterId = features?.[0]?.properties?.cluster_id;
+                const source = map.getSource("iip");
+                if (!source || clusterId === undefined) return;
+
+                source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+                    if (err) return;
+                    map.easeTo({ center: features[0].geometry.coordinates, zoom });
+                });
+            });
+            map.on("mouseenter", "clusters", () => map.getCanvas().style.cursor = "pointer");
+            map.on("mouseleave", "clusters", () => map.getCanvas().style.cursor = "");
+        }
+
+        // click point → popup
+        map.on("click", "points", (e) => {
+            const f = e.features && e.features[0];
+            if (!f) return;
+
+            const coordinates = f.geometry.coordinates.slice();
+            new maplibregl.Popup({ closeButton: true, closeOnClick: true })
+                .setLngLat(coordinates)
+                .setHTML(buildFeaturePopupHtml(f))
+                .addTo(map);
+        });
+        map.on("mouseenter", "points", () => map.getCanvas().style.cursor = "pointer");
+        map.on("mouseleave", "points", () => map.getCanvas().style.cursor = "");
+
+        // fit bounds
+        fitBoundsToFeatures(map, data.features);
+    });
+
+    mapWrap.__iipMap = map;
+    return map;
+}
+
+async function appendIndustrialMapToBot(botEl, question, data) {
+    if (!botEl) return false;
+    if (botEl.querySelector(".iip-map-card")) return false;
+
+    const visPre = (typeof extractExcelVisualize === "function") ? extractExcelVisualize(data) : null;
+    if (!isIndustrialQuery(question) && !(visPre?.items?.length)) return false;
+
+    let geo;
+    try {
+        geo = await getIndustrialGeojson();
+    } catch (e) {
+        // show error card
+        const stack = botEl.querySelector(".bot-stack");
+        const actions = botEl.querySelector(".message-actions");
+        const card = document.createElement("div");
+        card.className = "iip-map-card";
+        card.innerHTML = `<div class="iip-map-error">⚠️ Không tải được dữ liệu bản đồ. Hãy chắc chắn file <b>${escapeHtmlGlobal(IIP_GEOJSON_PATH)}</b> nằm cùng thư mục với <b>index.html</b> và bạn chạy bằng server (Live Server / http.server).</div>`;
+        if (stack && actions) stack.insertBefore(card, actions);
+        else if (stack) stack.appendChild(card);
+        else botEl.appendChild(card);
+        return true;
+    }
+
+    // ưu tiên: nếu server trả excel_visualize → match theo items
+    const vis = visPre;
+    let r = null;
+
+    let features = [];
+    let subtitle = "";
+
+    if (vis?.items?.length) {
+        features = matchFeaturesByItemNames(vis.items, geo.features);
+        subtitle = features.length
+            ? `Hiển thị ${features.length} khu công nghiệp từ kết quả trả lời.`
+            : "Không match được theo tên — hiển thị theo truy vấn.";
+    }
+
+    if (!features.length) {
+        r = filterFeaturesForQuestion(question, geo);
+        features = r.filtered;
+        subtitle = r.province
+            ? `Lọc theo tỉnh: ${r.province}. (${features.length} điểm)`
+            : `Hiển thị theo truy vấn. (${features.length} điểm)`;
+        // nếu vẫn trống thì show full dataset
+        if (!features.length) {
+            features = geo.features.slice();
+            subtitle = `Hiển thị toàn bộ dữ liệu. (${features.length} điểm)`;
+        }
+    }
+
+    const stack = botEl.querySelector(".bot-stack");
+    const actions = botEl.querySelector(".message-actions");
+
+    const { card, mapWrap, btnFit, btnToggle, btnTerrain, btnProvinces, hint, subEl } = createIipMapCard({
+        title: "Bản đồ khu công nghiệp",
+        subtitle
+    });
+
+    if (hint) hint.textContent = `• Click vào cụm để zoom. • Click vào điểm để xem chi tiết. • Tổng: ${features.length} điểm.`;
+
+    if (stack && actions) stack.insertBefore(card, actions);
+    else if (stack) stack.appendChild(card);
+    else botEl.appendChild(card);
+
+    // Force wide bubble
+    try {
+        const bubble = botEl.querySelector(".message-bubble");
+        if (bubble) bubble.classList.add("wide");
+    } catch (_) {}
+
+    const map = renderIipMap(mapWrap, geo, features, { question, province: r?.province || vis?.province || "" });
+
+    btnFit?.addEventListener("click", () => {
+        try {
+            if (!map) return;
+            fitBoundsToFeatures(map, buildGeojsonFromFeatures(features).features);
+        } catch (_) {}
+    });
+
+    btnToggle?.addEventListener("click", () => {
+        const isHidden = mapWrap.style.display === "none";
+        mapWrap.style.display = isHidden ? "" : "none";
+        if (hint) hint.style.display = isHidden ? "" : "none";
+        btnToggle.innerHTML = isHidden
+            ? '<i class="fa-solid fa-down-left-and-up-right-to-center"></i> Thu gọn'
+            : '<i class="fa-solid fa-up-right-and-down-left-from-center"></i> Mở rộng';
+        if (isHidden) {
+            // khi mở lại: map cần resize
+            try { map?.resize?.(); } catch (_) {}
+        }
+    });
+
+    btnTerrain?.addEventListener("click", () => {
+        if (!map) return;
+        const current = btnTerrain.dataset.mode || "osm";
+        const next = current === "topo" ? "osm" : "topo";
+        btnTerrain.dataset.mode = next;
+        btnTerrain.innerHTML = next === "topo"
+            ? '<i class="fa-solid fa-map"></i> Nền thường'
+            : '<i class="fa-solid fa-mountain"></i> Địa hình';
+        setBasemapMode(map, next);
+    });
+
+    btnProvinces?.addEventListener("click", () => {
+        if (!map) return;
+        const on = (btnProvinces.dataset.on || "0") === "1";
+        const next = !on;
+        btnProvinces.dataset.on = next ? "1" : "0";
+        btnProvinces.innerHTML = next
+            ? '<i class="fa-solid fa-layer-group"></i> Tắt tỉnh'
+            : '<i class="fa-solid fa-layer-group"></i> Tỉnh';
+        setProvinceLayerVisible(map, next);
+        // nếu có tỉnh trong query thì highlight khi bật
+        if (next) {
+            const pv = (r?.province || vis?.province || "");
+            if (pv) {
+                const mapped = mapProvinceNameToGeo(pv);
+                try { map.setFilter('province-highlight', ['==', ['get', 'NAME_1'], mapped]); } catch (_) {}
+            }
+        }
+    });
+
+
+    // ✅ Click vào dòng trong bảng/thẻ để focus điểm trên bản đồ
+    try {
+        if (map) {
+            const rows = botEl.querySelectorAll(".data-table tbody tr");
+            rows.forEach(tr => {
+                tr.style.cursor = "pointer";
+                tr.addEventListener("click", () => {
+                    const tds = tr.querySelectorAll("td");
+                    const nameCell = tds && tds.length >= 2 ? tds[1] : null;
+                    const nm = nameCell ? nameCell.textContent.trim() : "";
+                    const f = findBestFeatureByName(nm, geo.features);
+                    if (f) focusFeatureOnMap(map, f);
+                });
+            });
+
+            const cards = botEl.querySelectorAll(".data-card .data-card-title");
+            cards.forEach(node => {
+                node.style.cursor = "pointer";
+                node.addEventListener("click", () => {
+                    const txt = node.textContent || "";
+                    // format: "1. Tên KCN"
+                    const nm = txt.replace(/^\s*\d+\.\s*/, "").trim();
+                    const f = findBestFeatureByName(nm, geo.features);
+                    if (f) focusFeatureOnMap(map, f);
+                });
+            });
+        }
+    } catch (_) {}
+
+    setTimeout(scrollToBottom, 80);
+    return true;
+}
+
+
 // ⭐ jsonToIndustrialTableV2 giữ nguyên để render bảng từ JSON
 function jsonToIndustrialTableV2(data) {
     if (!Array.isArray(data) || data.length === 0) {
@@ -256,14 +1048,17 @@ if (window.visualViewport) {
 }
 
 // Keep latest message visible when keyboard opens/closes
-messageInput?.addEventListener("focus", () => setTimeout(() => scrollToBottom("auto"), 50));
-messageInput?.addEventListener("blur", () => setTimeout(() => scrollToBottom("auto"), 50));
+// (Auto-scroll on focus/blur removed: only scroll on new user message or bot reply)
 
 // =========================
 // ⭐ FIX QUAN TRỌNG: Auto scroll (single-scroll container)
 // =========================
-function scrollToBottom(behavior = "smooth") {
+function scrollToBottom(behavior = "smooth", force = false) {
     if (!chatContainer) return;
+    // Khi đang sửa tin nhắn thì KHÔNG tự kéo xuống (đứng yên tại vị trí đang sửa)
+    try {
+        if (!force && !!chatContainer.querySelector('.user-message.editing')) return;
+    } catch (_) {}
     requestAnimationFrame(() => {
         try {
             chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior });
@@ -417,6 +1212,9 @@ function scrollToBottom(behavior = "smooth") {
 
                 handleExcelVisualizeResponse(data, botEl);
 
+                // ✅ Luôn hiện bản đồ khi hỏi về KCN/CCN (hoặc khi server trả excel_visualize)
+                Promise.resolve(appendIndustrialMapToBot(botEl, message, data)).catch(() => {});
+
                 // ✅ UPDATE ANSWER VÀO GOOGLE
                 logToGoogle({
                     message_id: messageId,
@@ -491,7 +1289,7 @@ function scrollToBottom(behavior = "smooth") {
         chatContainer.appendChild(userMessageElement);
 
         // ⭐ Auto scroll
-        setTimeout(scrollToBottom, 50);
+        setTimeout(() => scrollToBottom("smooth", true), 50)
     }
 
     // ====================  HIỂN THỊ TIN NHẮN BOT + ACTIONS  ====================  ====================
@@ -1127,7 +1925,7 @@ function scrollToBottom(behavior = "smooth") {
         }
 
         // hide bubble/actions by CSS (.editing)
-        setTimeout(scrollToBottom, 50);
+        try { userEl.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (_) {}
     }
 
     async function postChat(question) {
@@ -1631,17 +2429,27 @@ function scrollToBottom(behavior = "smooth") {
             panel.classList.toggle("active", panel.getAttribute("data-view-panel") === target);
         });
 
-        // Kéo xuống cho chắc (đặc biệt khi chuyển sang thẻ)
-        scrollToBottom();
+        // Không auto-scroll khi chỉ đổi chế độ xem (Bảng/Thẻ).
+
     });
 
-    // ⭐ Auto scroll mạnh hơn: khi DOM thay đổi (bảng / ảnh / typing), luôn kéo xuống cuối
+    // ⭐ Auto scroll: chỉ khi thêm message mới (không scroll khi tương tác map / tile load)
     try {
-        const chatObserver = new MutationObserver(() => {
-            // nếu user đang scroll lên đọc thì vẫn ưu tiên kéo xuống theo yêu cầu
-            scrollToBottom();
+        const chatObserver = new MutationObserver((mutations) => {
+            let should = false;
+            for (const mu of mutations) {
+                for (const node of (mu.addedNodes || [])) {
+                    if (node && node.nodeType === 1 && node.classList && node.classList.contains("message")) {
+                        should = true;
+                        break;
+                    }
+                }
+                if (should) break;
+            }
+            if (should) scrollToBottom();
         });
-        chatObserver.observe(chatContainer, { childList: true, subtree: true });
+        // chỉ quan sát các con trực tiếp của chatContainer → tránh trigger bởi DOM thay đổi bên trong bản đồ
+        chatObserver.observe(chatContainer, { childList: true, subtree: false });
     } catch (e) {
         // ignore
     }

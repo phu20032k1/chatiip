@@ -4,30 +4,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-<meta http-equiv="Pragma" content="no-cache" />
-<meta http-equiv="Expires" content="0" />
-<script>
-  window.CHATIIP_VERSION = "20260104050500";
-  (function () {
-    const VERSION_URL = "app-version.json";
-    fetch(VERSION_URL, { cache: "no-store" })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => {
-        const v = (j && j.version) ? String(j.version) : (window.CHATIIP_VERSION || "");
-        if (!v) return;
-        try { localStorage.setItem("chatiip_app_version", v); } catch (e) {}
-        const u = new URL(window.location.href);
-        if (u.searchParams.get("v") !== v) {
-          u.searchParams.set("v", v);
-          window.location.replace(u.toString());
-        }
-      })
-      .catch(() => {});
-  })();
-</script>
-<meta name="keywords"
+
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <script>
+        window.CHATIIP_VERSION = "20260104050500";
+        (function () {
+            const VERSION_URL = "app-version.json";
+            fetch(VERSION_URL, { cache: "no-store" })
+                .then(r => r.ok ? r.json() : null)
+                .then(j => {
+                    const v = (j && j.version) ? String(j.version) : (window.CHATIIP_VERSION || "");
+                    if (!v) return;
+                    try { localStorage.setItem("chatiip_app_version", v); } catch (e) { }
+                    const u = new URL(window.location.href);
+                    if (u.searchParams.get("v") !== v) {
+                        u.searchParams.set("v", v);
+                        window.location.replace(u.toString());
+                    }
+                })
+                .catch(() => { });
+        })();
+    </script>
+    <meta name="keywords"
         content="ChatIIP-Trợ lý AI bất động sản công nghiệp,việc làm,kế toán,bất động sản và doanh nghiệp">
 
 
@@ -41,7 +41,10 @@
 
 
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+    <!-- Mapbox GL -->
+    <link href="https://unpkg.com/maplibre-gl@5.15.0/dist/maplibre-gl.css" rel="stylesheet" />
+
     <link rel="stylesheet" href="style.css?v=20260104050500">
 
     <link rel="canonical" href="https://chatiip.com" />
@@ -217,6 +220,8 @@
     </div>
 
     <!-- SCRIPT -->
+    <script src="https://unpkg.com/maplibre-gl@5.15.0/dist/maplibre-gl.js"></script>
+
     <script src="script.js?v=20260104050500"></script>
 
     <!-- ⭐ HÀNH VI CHUYỂN SANG NEWS FULLPAGE -->
@@ -235,7 +240,7 @@
 
 
 
-<script src="auth.js?v=20260104050500"></script>
+    <script src="auth.js?v=20260104050500"></script>
 </body>
 
 </html>
