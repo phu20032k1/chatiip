@@ -372,35 +372,22 @@ function createIipMapCard({ title, subtitle }) {
     const mapWrap = document.createElement("div");
     mapWrap.className = "iip-map-wrap";
 
-    // ✅ Mobile fix: allow MapLibre nhận touch/pointer để kéo/zoom
-    // nhưng KHÓA scroll của chat khi người dùng đang tương tác với bản đồ.
+    // Prevent parent chat container from scrolling while user interacts with the map.
+    // IMPORTANT: do NOT use capture=true here, otherwise MapLibre will NOT receive events
+    // (causes "can't click/drag/zoom" bugs).
     try {
-        const chat = document.getElementById('chatContainer');
+        const stopBubble = (ev) => { try { ev.stopPropagation(); } catch (_) {} };
+        const stopAndPrevent = (ev) => {
+            try { ev.preventDefault?.(); } catch (_) {}
+            try { ev.stopPropagation?.(); } catch (_) {}
+        };
 
-        const lock = () => { try { chat?.classList.add('map-interacting'); } catch (_) {} };
-        const unlock = () => { try { chat?.classList.remove('map-interacting'); } catch (_) {} };
-
-        // Touch: chặn scroll của chat (preventDefault) nhưng không stopPropagation
-        mapWrap.addEventListener('touchstart', lock, { passive: true });
-        mapWrap.addEventListener('touchend', unlock, { passive: true });
-        mapWrap.addEventListener('touchcancel', unlock, { passive: true });
-        mapWrap.addEventListener('touchmove', (e) => {
-            lock();
-            try { e.preventDefault(); } catch (_) {}
-        }, { passive: false });
-
-        // Pointer: khi giữ/drag (Android/Chrome)
-        mapWrap.addEventListener('pointerdown', lock, { passive: true });
-        mapWrap.addEventListener('pointerup', unlock, { passive: true });
-        mapWrap.addEventListener('pointercancel', unlock, { passive: true });
-
-        // Wheel (desktop trackpad): chặn scroll của chat để zoom map mượt
-        mapWrap.addEventListener('wheel', (e) => {
-            lock();
-            try { e.preventDefault(); } catch (_) {}
-            // thả lock nhanh để người dùng vẫn cuộn chat sau khi thôi zoom
-            setTimeout(unlock, 120);
-        }, { passive: false });
+        // stop page/chat scroll but keep events reaching MapLibre
+        mapWrap.addEventListener("wheel", stopAndPrevent, { passive: false });
+        mapWrap.addEventListener("touchmove", stopAndPrevent, { passive: false });
+        ["touchstart", "pointerdown", "pointermove"].forEach((t) => {
+            mapWrap.addEventListener(t, stopBubble, { passive: true });
+        });
     } catch (_) {}
 
 
@@ -1239,8 +1226,8 @@ function scrollToBottom(behavior = "smooth", force = false) {
             .then(res => res.json())
             .then(data => {
                 hideTypingIndicator();
-                const answer = data.answer || data.reply || "No response.";
-                const botEl = addBotMessage(answer, { messageId, question: message });
+                const answerRaw = (data && (data.answer ?? data.reply)) ?? "No response.";
+                const botEl = addBotMessage(answerRaw, { messageId, question: message });
 
                 handleExcelVisualizeResponse(data, botEl);
 
@@ -1253,7 +1240,7 @@ function scrollToBottom(behavior = "smooth", force = false) {
                     session_id: getSessionId(),
                     user_id: getUserId(),
                     question: message,
-                    answer: answer,
+                    answer: (typeof answerRaw === "string") ? answerRaw : JSON.stringify(answerRaw),
                     status: "answered"
                 });
             })
@@ -1336,55 +1323,69 @@ function scrollToBottom(behavior = "smooth", force = false) {
 
     function normalizeBotMessage(rawMessage) {
         let finalMessage = rawMessage ?? "";
+        let forcePre = false;
 
         try {
-            let parsed = null;
-
-            // ✅ Trường hợp server trả object/array trực tiếp (không phải string)
+            // ✅ Nếu server trả object/array trực tiếp (không phải string) → đừng để rơi vào "[object Object]"
             if (rawMessage && typeof rawMessage === "object") {
-                parsed = rawMessage;
+                const obj = rawMessage;
+
+                // ưu tiên: array hoặc {data:[...]}
+                if (Array.isArray(obj)) {
+                    finalMessage = jsonToIndustrialTableV2(obj);
+                } else if (Array.isArray(obj.data)) {
+                    finalMessage = jsonToIndustrialTableV2(obj.data);
+                } else {
+                    // các field phổ biến
+                    const maybeText = obj.answer ?? obj.reply ?? obj.message ?? obj.text ?? "";
+                    if (typeof maybeText === "string" && maybeText.trim()) {
+                        finalMessage = maybeText;
+                    } else if (maybeText && typeof maybeText === "object") {
+                        if (Array.isArray(maybeText)) finalMessage = jsonToIndustrialTableV2(maybeText);
+                        else if (Array.isArray(maybeText.data)) finalMessage = jsonToIndustrialTableV2(maybeText.data);
+                        else {
+                            finalMessage = JSON.stringify(maybeText, null, 2);
+                            forcePre = true;
+                        }
+                    } else {
+                        finalMessage = JSON.stringify(obj, null, 2);
+                        forcePre = true;
+                    }
+                }
             } else {
+                // ✅ Trường hợp message là string: thử parse JSON (1-3 lần) như cũ
                 let raw = String(rawMessage ?? "");
                 raw = raw.trim();
 
-                // chỉ thử parse nếu nhìn giống JSON
-                const looksJson = /^[\[{]/.test(raw);
-                if (looksJson) {
-                    // parse thử nhiều lần vì đôi khi JSON bị bọc string nhiều lớp
-                    try { parsed = JSON.parse(raw); } catch (_) {}
-                    if (parsed && typeof parsed === "string") { try { parsed = JSON.parse(parsed); } catch (_) {} }
-                    if (parsed && typeof parsed === "string") { try { parsed = JSON.parse(parsed); } catch (_) {} }
+                let parsed;
+                try { parsed = JSON.parse(raw); } catch (e) { }
+                if (parsed && typeof parsed === "string") {
+                    try { parsed = JSON.parse(parsed); } catch (e) { }
                 }
-            }
+                if (parsed && typeof parsed === "string") {
+                    try { parsed = JSON.parse(parsed); } catch (e) { }
+                }
 
-            // ✅ Render bảng + danh sách (thẻ) thay vì [object Object]
-            if (parsed && typeof parsed === "object") {
-                const arr =
-                    (Array.isArray(parsed.data) && parsed.data) ||
-                    (Array.isArray(parsed.items) && parsed.items) ||
-                    (Array.isArray(parsed.results) && parsed.results) ||
-                    (Array.isArray(parsed.list) && parsed.list) ||
-                    null;
-
-                if (Array.isArray(arr)) {
-                    finalMessage = jsonToIndustrialTableV2(arr);
+                if (parsed && typeof parsed === "object" && Array.isArray(parsed.data)) {
+                    finalMessage = jsonToIndustrialTableV2(parsed.data);
                 } else if (Array.isArray(parsed)) {
                     finalMessage = jsonToIndustrialTableV2(parsed);
                 } else {
-                    // fallback: hiển thị JSON đẹp (đỡ khó chịu hơn object)
-                    finalMessage = `<pre class="json-block">${escapeHtmlGlobal(JSON.stringify(parsed, null, 2))}</pre>`;
+                    finalMessage = rawMessage;
                 }
-            } else {
-                finalMessage = rawMessage;
             }
-
         } catch (err) {
-            console.log("JSON PARSE ERR", err);
-            finalMessage = rawMessage;
+            console.log("normalizeBotMessage ERR", err);
+            finalMessage = String(rawMessage ?? "");
         }
 
         const isHTML = String(finalMessage).trim().startsWith("<");
-        const html = isHTML ? String(finalMessage) : formatMessage(String(finalMessage));
+        const html = isHTML
+            ? String(finalMessage)
+            : (forcePre
+                ? `<pre class="json-block">${escapeHtmlGlobal(String(finalMessage))}</pre>`
+                : formatMessage(String(finalMessage))
+              );
 
         return { finalMessage, html, isHTML };
     }
@@ -1885,9 +1886,9 @@ function scrollToBottom(behavior = "smooth", force = false) {
             });
 
             const data = await res.json();
-            const answer = data.answer || data.reply || 'No response.';
+            const answerRaw = (data && (data.answer ?? data.reply)) ?? 'No response.';
 
-            const normalized = normalizeBotMessage(answer);
+            const normalized = normalizeBotMessage(answerRaw);
             bubble.innerHTML = normalized.html;
             handleExcelVisualizeResponse(data, botEl);
 
@@ -1897,7 +1898,7 @@ function scrollToBottom(behavior = "smooth", force = false) {
                 session_id: getSessionId(),
                 user_id: getUserId(),
                 question,
-                answer,
+                answer: (typeof answerRaw === 'string') ? answerRaw : JSON.stringify(answerRaw),
                 status: 'done'
             });
         } catch (e) {
@@ -2010,8 +2011,8 @@ function scrollToBottom(behavior = "smooth", force = false) {
         try {
             const data = await postChat(newText);
             hideTypingIndicator();
-            const answer = data?.answer || data?.reply || 'No response.';
-            const botEl = addBotMessage(answer, { messageId, question: newText });
+            const answerRaw = (data && (data.answer ?? data.reply)) ?? 'No response.';
+            const botEl = addBotMessage(answerRaw, { messageId, question: newText });
             handleExcelVisualizeResponse(data, botEl);
 
             logToGoogle({
@@ -2020,7 +2021,7 @@ function scrollToBottom(behavior = "smooth", force = false) {
                 session_id: getSessionId(),
                 user_id: getUserId(),
                 question: newText,
-                answer: answer,
+                answer: (typeof answerRaw === 'string') ? answerRaw : JSON.stringify(answerRaw),
                 status: 'answered'
             });
         } catch (e) {
@@ -2337,8 +2338,8 @@ function scrollToBottom(behavior = "smooth", force = false) {
             .then(res => res.json())
             .then(data => {
                 hideTypingIndicator();
-                const answer = data.answer || data.reply || "No response.";
-                const botEl = addBotMessage(answer, { messageId, question: text });
+                const answerRaw = (data && (data.answer ?? data.reply)) ?? "No response.";
+                const botEl = addBotMessage(answerRaw, { messageId, question: text });
 
                 handleExcelVisualizeResponse(data, botEl);
 
@@ -2348,7 +2349,7 @@ function scrollToBottom(behavior = "smooth", force = false) {
                     session_id: getSessionId(),
                     user_id: getUserId(),
                     question: text,
-                    answer: answer,
+                    answer: (typeof answerRaw === "string") ? answerRaw : JSON.stringify(answerRaw),
                     status: "answered"
                 });
             })
