@@ -347,8 +347,8 @@ function createIipMapCard({ title, subtitle }) {
     const btnTerrain = document.createElement("button");
     btnTerrain.className = "iip-map-btn";
     btnTerrain.type = "button";
-    btnTerrain.innerHTML = '<i class="fa-solid fa-mountain"></i> Địa hình';
-    btnTerrain.dataset.mode = "osm";
+    btnTerrain.innerHTML = '<i class="fa-solid fa-satellite"></i> Vệ tinh';
+    btnTerrain.dataset.mode = "sat";
 
     const btnProvinces = document.createElement("button");
     btnProvinces.className = "iip-map-btn";
@@ -404,19 +404,33 @@ function createIipMapCard({ title, subtitle }) {
 
 
 function createOsmStyle() {
-    // 2 lớp nền: OSM (mặc định) + Địa hình (OpenTopoMap) + hillshade nhẹ
+    // 3 lớp nền: Vệ tinh (mặc định) + Nền thường (CARTO Voyager) + Địa hình (OpenTopoMap) + hillshade nhẹ
+    // Lưu ý: lớp nền raster sẽ hiển thị nhãn/biên giới theo nhà cung cấp tile.
+    // Với các khu vực nhạy cảm về nhãn/đường ranh, dùng nền thường từ CARTO (Voyager) để tránh hiển thị chữ Trung/đường nối.
     return {
         version: 8,
+        glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
         sources: {
+            sat: {
+                type: "raster",
+                tiles: ["https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+                tileSize: 256,
+                attribution: "Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community"
+            },
             osm: {
                 type: "raster",
-                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                // "Voyager" cho cảm giác tương tự bản đồ đường phố, nhưng thường không hiển thị nhãn tiếng Trung/đường nối như một số tile OSM.
+                tiles: ["https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"],
                 tileSize: 256,
-                attribution: "© OpenStreetMap contributors"
+                attribution: "© OpenStreetMap contributors, © CARTO"
             },
             topo: {
                 type: "raster",
-                tiles: ["https://a.tile.opentopomap.org/{z}/{x}/{y}.png","https://b.tile.opentopomap.org/{z}/{x}/{y}.png","https://c.tile.opentopomap.org/{z}/{x}/{y}.png"],
+                tiles: [
+                    "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
+                    "https://b.tile.opentopomap.org/{z}/{x}/{y}.png",
+                    "https://c.tile.opentopomap.org/{z}/{x}/{y}.png"
+                ],
                 tileSize: 256,
                 attribution: "© OpenTopoMap (SRTM)"
             },
@@ -428,22 +442,38 @@ function createOsmStyle() {
             }
         },
         layers: [
-            { id: "osm", type: "raster", source: "osm", layout: { visibility: "visible" } },
+            { id: "sat", type: "raster", source: "sat", layout: { visibility: "visible" } },
+            { id: "osm", type: "raster", source: "osm", layout: { visibility: "none" } },
             { id: "topo", type: "raster", source: "topo", layout: { visibility: "none" } },
             { id: "hillshade", type: "raster", source: "hillshade", layout: { visibility: "none" }, paint: { "raster-opacity": 0.35 } }
         ]
     };
 }
 
-function setBasemapMode(map, mode = "osm") {
+function updateBasemapButton(btn, mode) {
+    if (!btn) return;
+    const label = mode === "topo"
+        ? '<i class="fa-solid fa-mountain"></i> Địa hình'
+        : mode === "osm"
+            ? '<i class="fa-solid fa-map"></i> Nền thường'
+            : '<i class="fa-solid fa-satellite"></i> Vệ tinh';
+    btn.innerHTML = label;
+}
+
+
+function setBasemapMode(map, mode = "sat") {
     try {
-        const showOsm = mode !== "topo";
+        const showSat = mode === "sat";
+        const showOsm = mode === "osm";
         const showTopo = mode === "topo";
+
+        if (map.getLayer("sat")) map.setLayoutProperty("sat", "visibility", showSat ? "visible" : "none");
         if (map.getLayer("osm")) map.setLayoutProperty("osm", "visibility", showOsm ? "visible" : "none");
         if (map.getLayer("topo")) map.setLayoutProperty("topo", "visibility", showTopo ? "visible" : "none");
         if (map.getLayer("hillshade")) map.setLayoutProperty("hillshade", "visibility", showTopo ? "visible" : "none");
     } catch (_) {}
 }
+
 
 function setProvinceLayerVisible(map, visible) {
     try {
@@ -451,6 +481,113 @@ function setProvinceLayerVisible(map, visible) {
         ["province-fill", "province-line", "province-highlight", "province-label"].forEach(id => {
             if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", v);
         });
+    } catch (_) {}
+}
+
+function addIslandsLabels(map) {
+    // Nhãn tiếng Việt cho 2 quần đảo.
+    // Đồng thời phủ (mask) một vùng nhỏ quanh 2 quần đảo để tránh việc tile nền hiển thị nhãn/đường ranh gây nhiễu.
+    try {
+        const srcId = "vn-islands";
+        const maskId = "vn-islands-mask";
+
+        // 1) Mask: che bớt nhãn/đường ranh từ tile nền trong vùng biển quanh 2 quần đảo.
+        if (!map.getSource(maskId)) {
+            const mask = {
+                type: "FeatureCollection",
+                features: [
+                    {
+                        type: "Feature",
+                        properties: { kind: "mask" },
+                        // Hoàng Sa (xấp xỉ vùng biển bao quanh)
+                        geometry: {
+                            type: "Polygon",
+                            coordinates: [[
+                                [110.6, 14.9],
+                                [113.9, 14.9],
+                                [113.9, 18.1],
+                                [110.6, 18.1],
+                                [110.6, 14.9]
+                            ]]
+                        }
+                    },
+                    {
+                        type: "Feature",
+                        properties: { kind: "mask" },
+                        // Trường Sa (xấp xỉ vùng biển bao quanh)
+                        geometry: {
+                            type: "Polygon",
+                            coordinates: [[
+                                [112.3, 8.6],
+                                [116.4, 8.6],
+                                [116.4, 12.5],
+                                [112.3, 12.5],
+                                [112.3, 8.6]
+                            ]]
+                        }
+                    }
+                ]
+            };
+            map.addSource(maskId, { type: "geojson", data: mask });
+        }
+
+        if (!map.getLayer("vn-islands-mask-fill")) {
+            map.addLayer({
+                id: "vn-islands-mask-fill",
+                type: "fill",
+                source: maskId,
+                paint: {
+                    // màu xanh biển nhẹ để hòa với nền bản đồ; mục tiêu là che nhãn/đường ranh, không gây chú ý.
+                    "fill-color": "rgba(135, 189, 206, 0)",
+                    "fill-outline-color": "rgba(170, 220, 235, 0.0)"
+                }
+            });
+        }
+
+        // 2) Labels: nhãn do chúng ta tự đặt (ưu tiên tiếng Việt + theo yêu cầu “Việt Nam”).
+        if (!map.getSource(srcId)) {
+            const data = {
+                type: "FeatureCollection",
+                features: [
+                    {
+                        type: "Feature",
+                        properties: {
+                            name: "Quần đảo Hoàng Sa (Việt Nam)",
+                            title: "Quần đảo Hoàng Sa — của Việt Nam"
+                        },
+                        geometry: { type: "Point", coordinates: [112.30, 16.50] }
+                    },
+                    {
+                        type: "Feature",
+                        properties: {
+                            name: "Quần đảo Trường Sa (Việt Nam)",
+                            title: "Quần đảo Trường Sa — của Việt Nam"
+                        },
+                        geometry: { type: "Point", coordinates: [114.30, 10.50] }
+                    }
+                ]
+            };
+            map.addSource(srcId, { type: "geojson", data });
+        }
+
+        if (!map.getLayer("vn-islands-label")) {
+            map.addLayer({
+                id: "vn-islands-label",
+                type: "symbol",
+                source: srcId,
+                layout: {
+                    "text-field": ["get", "name"],
+                    "text-size": 13,
+                    "text-anchor": "center",
+                    "text-allow-overlap": true
+                },
+                paint: {
+                    "text-color": "#0f172a",
+                    "text-halo-color": "#ffffff",
+                    "text-halo-width": 1.4
+                }
+            });
+        }
     } catch (_) {}
 }
 
@@ -593,6 +730,23 @@ function renderIipMap(mapWrap, geojson, features, meta = {}) {
         await ensureMapIcons(map);
         // Province layer (tắt mặc định)
         await addProvinceLayers(map, meta?.province || "");
+        addIslandsLabels(map);
+
+        // Click nhãn quần đảo → popup "title"
+        try {
+            map.on("click", "vn-islands-label", (e) => {
+                const f = e?.features?.[0];
+                if (!f) return;
+                const coordinates = (f.geometry?.coordinates || []).slice();
+                const title = f?.properties?.title || f?.properties?.name || "";
+                new maplibregl.Popup({ closeButton: true, closeOnClick: true })
+                    .setLngLat(coordinates)
+                    .setHTML(`<div style="font-weight:700;">${escapeHtmlGlobal(String(title))}</div>`)
+                    .addTo(map);
+            });
+            map.on("mouseenter", "vn-islands-label", () => map.getCanvas().style.cursor = "pointer");
+            map.on("mouseleave", "vn-islands-label", () => map.getCanvas().style.cursor = "");
+        } catch (_) {}
 
         map.addSource("iip", {
             type: "geojson",
@@ -799,14 +953,13 @@ async function appendIndustrialMapToBot(botEl, question, data) {
 
     btnTerrain?.addEventListener("click", () => {
         if (!map) return;
-        const current = btnTerrain.dataset.mode || "osm";
-        const next = current === "topo" ? "osm" : "topo";
+        const current = btnTerrain.dataset.mode || "sat";
+        const next = current === "sat" ? "osm" : (current === "osm" ? "topo" : "sat");
         btnTerrain.dataset.mode = next;
-        btnTerrain.innerHTML = next === "topo"
-            ? '<i class="fa-solid fa-map"></i> Nền thường'
-            : '<i class="fa-solid fa-mountain"></i> Địa hình';
+        updateBasemapButton(btnTerrain, next);
         setBasemapMode(map, next);
     });
+
 
     btnProvinces?.addEventListener("click", () => {
         if (!map) return;
