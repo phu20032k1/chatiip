@@ -11,7 +11,7 @@
     <script>
 (function () {
   const STORAGE_KEY = "chatiip_app_version";
-  const FALLBACK_VERSION = "20260107061000";
+  const FALLBACK_VERSION = "20260109202924";
   const u = new URL(window.location.href);
   let v = u.searchParams.get("v") || "";
   if (!v) { try { v = localStorage.getItem(STORAGE_KEY) || ""; } catch (e) {} }
@@ -122,7 +122,7 @@
 
 
 
-    <!-- Google Analytics - Multiple Tracking -->
+    <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-9DLYZL4633"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -145,12 +145,12 @@
 
 <body data-page="chat">
 
-    <!-- Nút Hamburger -->
+    <!-- Hamburger -->
     <button class="hamburger-btn" id="hamburgerBtn">
         <i class="fas fa-bars"></i>
     </button>
 
-    <!-- Nút Tin tức -->
+    <!-- Tin tức -->
     <button class="news-btn" id="newsBtn">
         <i class="fas fa-newspaper"></i>
     </button>
@@ -166,7 +166,7 @@
                 <i class="fas fa-plus"></i> Đoạn chat mới
             </button>
 
-            <!-- ✅ Tra cứu văn bản pháp luật -->
+            <!-- văn bản pháp luật -->
             <button class="menu-item" id="lawsBtn">
                 <i class="fas fa-scale-balanced"></i> Văn bản pháp luật
             </button>
@@ -240,14 +240,14 @@
 
     <script>document.write('<script src=\"' + window.__CHATIIP_ASSET('script.js') + '\"><\/script>');</script>
 
-    <!-- ⭐ HÀNH VI CHUYỂN SANG NEWS FULLPAGE -->
+    <!-- NEWS FULLPAGE -->
     <script>
         document.getElementById("newsBtn")?.addEventListener("click", () => {
             window.location.href = "news.html?v=" + encodeURIComponent(window.CHATIIP_VERSION||"");
         });
     </script>
 
-    <!-- ✅ Chuyển sang trang tra cứu văn bản -->
+    <!-- trang tra cứu văn bản -->
     <script>
         document.getElementById("lawsBtn")?.addEventListener("click", () => {
             window.location.href = "laws.html?v=" + encodeURIComponent(window.CHATIIP_VERSION||"");

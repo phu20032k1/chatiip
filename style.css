@@ -1535,6 +1535,42 @@ body.theme-dark .img-preview-close{
 .maplibregl-ctrl-attrib{ font-size: 10px; }
 
 
+/* Popup actions (chỉ dùng trong popup của bản đồ KCN/CCN) */
+.maplibregl-popup-content .iip-popup-actions,
+.mapboxgl-popup-content .iip-popup-actions{
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.maplibregl-popup-content .iip-popup-btn,
+.mapboxgl-popup-content .iip-popup-btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: #111827;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.maplibregl-popup-content .iip-popup-btn.secondary,
+.mapboxgl-popup-content .iip-popup-btn.secondary{
+  background: #ffffff;
+  color: #111827;
+}
+
+.maplibregl-popup-content .iip-popup-btn:hover,
+.mapboxgl-popup-content .iip-popup-btn:hover{
+  filter: brightness(0.95);
+}
+
+
 /* Small-height phones (landscape / small screens): avoid composer covering half screen */
 @media (max-height: 600px){
   .message-input-container.centered{

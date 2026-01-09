@@ -1,0 +1,11 @@
+[build]
+  # This site is plain HTML/CSS/JS (no bundler). We still run a small script
+  # to bump app-version.json on every deploy so users see updates immediately.
+  command = "bash ./netlify-build.sh"
+  publish = "."
+
+# Notes:
+# - If your GitHub repo is a monorepo and these files live in a subfolder (e.g. "chatbot/"),
+#   set Netlify "Base directory" to that folder, and keep publish = ".".
+# - If you do NOT set a base directory, you can move this netlify.toml to the repo root and
+#   change publish = "chatbot" and command = "bash chatbot/netlify-build.sh".

@@ -247,7 +247,7 @@ function injectAuthUI() {
           <div class="auth-panel hidden" id="panelRegister">
             <form id="registerForm" class="auth-form">
               <label class="auth-label">Họ & tên</label>
-              <input class="auth-input" id="regName" type="text" placeholder="VD: Minh Phú" required />
+              <input class="auth-input" id="regName" type="text" placeholder="VD: Khô Gà,Bã Mía,Mẹ Lý" required />
 
               <label class="auth-label">Email</label>
               <input class="auth-input" id="regEmail" type="email" placeholder="vd: ten@email.com" required />

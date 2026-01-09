@@ -157,19 +157,97 @@ async function getProvinceGeojson() {
 function buildProvinceIndex(geojson) {
     const features = Array.isArray(geojson?.features) ? geojson.features : [];
     const normToName = new Map();
+
+    const addAlias = (alias, canonical) => {
+        const a = String(alias || "").trim();
+        const c = String(canonical || "").trim();
+        if (!a || !c) return;
+        const n = normalizeViText(a);
+        if (!n) return;
+        if (!normToName.has(n)) normToName.set(n, c);
+    };
+
     for (const f of features) {
         const name = String(f?.properties?.NAME_1 || f?.properties?.name || "").trim();
         if (!name) continue;
-        normToName.set(normalizeViText(name), name);
+
+        addAlias(name, name);
+
+        // thêm alias từ VARNAME_1 (để hỗ trợ tỉnh cũ trước sáp nhập / cách viết khác)
+        const varname = String(f?.properties?.VARNAME_1 || "").trim();
+        if (varname) {
+            varname.split(",").forEach(a => addAlias(a, name));
+        }
     }
+
     return { features, normToName };
 }
 
+
+// Fallback mapping (hỗ trợ tên tỉnh cũ sau sáp nhập, dùng ngay cả khi chưa load province geojson)
+const PROVINCE_MERGE_FALLBACK = (() => {
+    const m = new Map();
+    const pairs = [
+        ["Hà Giang","Tuyên Quang"],
+        ["Yên Bái","Lào Cai"],
+        ["Bắc Kạn","Thái Nguyên"],
+        ["Vĩnh Phúc","Phú Thọ"],
+        ["Hòa Bình","Phú Thọ"],
+        ["Bắc Giang","Bắc Ninh"],
+        ["Thái Bình","Hưng Yên"],
+        ["Hải Dương","Hải Phòng"],
+        ["Hà Nam","Ninh Bình"],
+        ["Nam Định","Ninh Bình"],
+        ["Quảng Bình","Quảng Trị"],
+        ["Quảng Nam","Đà Nẵng"],
+        ["Kon Tum","Quảng Ngãi"],
+        ["Bình Định","Gia Lai"],
+        ["Ninh Thuận","Khánh Hòa"],
+        ["Đắk Nông","Lâm Đồng"],
+        ["Bình Thuận","Lâm Đồng"],
+        ["Phú Yên","Đắk Lắk"],
+        ["Bà Rịa - Vũng Tàu","Hồ Chí Minh"],
+        ["Bình Dương","Hồ Chí Minh"],
+        ["Bình Phước","Đồng Nai"],
+        ["Long An","Tây Ninh"],
+        ["Sóc Trăng","Cần Thơ"],
+        ["Hậu Giang","Cần Thơ"],
+        ["Bến Tre","Vĩnh Long"],
+        ["Trà Vinh","Vĩnh Long"],
+        ["Tiền Giang","Đồng Tháp"],
+        ["Bạc Liêu","Cà Mau"],
+        ["Kiên Giang","An Giang"],
+        ["Thừa Thiên Huế","Huế"]
+    ];
+    for (const [from, to] of pairs) {
+        m.set(normalizeViText(from), to);
+        m.set(normalizeViText(to), to);
+    }
+    // alias phổ biến
+    ["TP.HCM","TP HCM","TP Hồ Chí Minh","Sài Gòn","Sai Gon","Saigon"].forEach(a => m.set(normalizeViText(a), "Hồ Chí Minh"));
+    ["TP Đà Nẵng"].forEach(a => m.set(normalizeViText(a), "Đà Nẵng"));
+    ["TP Cần Thơ"].forEach(a => m.set(normalizeViText(a), "Cần Thơ"));
+    ["TP Hải Phòng"].forEach(a => m.set(normalizeViText(a), "Hải Phòng"));
+    return m;
+})();
+
+
 function mapProvinceNameToGeo(provinceText) {
     const norm = normalizeViText(provinceText);
-    if (!norm || !__vnProvIndex?.normToName) return provinceText || "";
-    return __vnProvIndex.normToName.get(norm) || provinceText || "";
+    if (!norm) return provinceText || "";
+
+    // Ưu tiên map theo geojson (34 tỉnh/thành mới)
+    if (__vnProvIndex?.normToName) {
+        return __vnProvIndex.normToName.get(norm)
+            || PROVINCE_MERGE_FALLBACK.get(norm)
+            || provinceText
+            || "";
+    }
+
+    // Nếu chưa load geojson: dùng fallback
+    return PROVINCE_MERGE_FALLBACK.get(norm) || provinceText || "";
 }
+
 
 function extractProvinceFromText(question) {
     const t = normalizeViText(question);
@@ -193,7 +271,18 @@ function buildFeaturePopupHtml(feature) {
     const lng = Number(coords[0]);
     const lat = Number(coords[1]);
 
-    const googleQuery = encodeURIComponent(`${p.name || ""} ${p.address || ""}`.trim() || `${lat},${lng}`);
+    // Link nguồn (iipmap) theo slug "code" nếu có
+    const codeRaw = String(p.code || "").trim();
+    // iipmap chỉ hoạt động đúng với đường dẫn /zones/<slug>
+    // Hỗ trợ cả trường hợp p.code đã là URL đầy đủ hoặc đã có prefix zones/
+    const codeClean = codeRaw
+      .replace(/^https?:\/\/iipmap\.com\/?/i, "")
+      .replace(/^\/+/, "");
+    const path = codeClean
+      ? (codeClean.startsWith("zones/") ? codeClean : `zones/${codeClean}`)
+      : "";
+    const sourceUrl = path ? `https://iipmap.com/${path.split("/").map(encodeURIComponent).join("/")}` : "";
+const googleQuery = encodeURIComponent(`${p.name || ""} ${p.address || ""}`.trim() || `${lat},${lng}`);
     const gmaps = `https://www.google.com/maps/search/?api=1&query=${googleQuery}`;
 
     const rows = [
@@ -202,7 +291,13 @@ function buildFeaturePopupHtml(feature) {
         price ? `<div><b>Giá:</b> ${price}</div>` : "",
         acreage ? `<div><b>Diện tích:</b> ${acreage} ha</div>` : "",
         (occ !== "" && occ !== "null") ? `<div><b>Lấp đầy:</b> ${occ}%</div>` : "",
-        `<div style="margin-top:8px;"><a class="chat-link" href="${gmaps}" target="_blank" rel="noopener noreferrer">Mở trên Google Maps</a></div>`
+        // Action link theo yêu cầu: chỉ hiển thị trong popup của bản đồ
+        sourceUrl ? `
+          <div class="iip-popup-actions">
+            <a class="iip-popup-btn" href="${sourceUrl}" target="_blank" rel="noopener noreferrer">Xem chi tiết trên IIPMAP</a>
+            <a class="iip-popup-btn secondary" href="${gmaps}" target="_blank" rel="noopener noreferrer">Xem trực tiếp trên Google Maps </a>
+          </div>` : "",
+        `<div style="margin-top:8px;"><a class="chat-link" href="${gmaps}" target="_blank" rel="noopener noreferrer"></a></div>`
     ].filter(Boolean).join("");
 
     return `<div style="min-width:220px"><div style="font-weight:800;margin-bottom:6px">${name}</div>${rows}</div>`;
@@ -285,8 +380,9 @@ function filterFeaturesForQuestion(question, geojson) {
     const features = idx.features || [];
 
     const province = extractProvinceFromText(question);
-    let filtered = province
-        ? features.filter(f => String(f?.properties?.province || "").trim() === province)
+    const provinceCanon = province ? mapProvinceNameToGeo(province) : "";
+    let filtered = provinceCanon
+        ? features.filter(f => mapProvinceNameToGeo(String(f?.properties?.province || "").trim()) === provinceCanon)
         : features.slice();
 
     // lấy token tìm kiếm (trừ stopwords) để match tên/địa chỉ
@@ -347,14 +443,14 @@ function createIipMapCard({ title, subtitle }) {
     const btnTerrain = document.createElement("button");
     btnTerrain.className = "iip-map-btn";
     btnTerrain.type = "button";
-    btnTerrain.innerHTML = '<i class="fa-solid fa-satellite"></i> Vệ tinh';
-    btnTerrain.dataset.mode = "sat";
+    btnTerrain.innerHTML = '<i class="fa-solid fa-map"></i> Nền thường';
+    btnTerrain.dataset.mode = "osm";
 
     const btnProvinces = document.createElement("button");
     btnProvinces.className = "iip-map-btn";
     btnProvinces.type = "button";
-    btnProvinces.innerHTML = '<i class="fa-solid fa-layer-group"></i> Tỉnh';
-    btnProvinces.dataset.on = "0";
+    btnProvinces.innerHTML = '<i class="fa-solid fa-layer-group"></i> Tắt tỉnh';
+    btnProvinces.dataset.on = "1";
 
     const btnToggle = document.createElement("button");
     btnToggle.className = "iip-map-btn";
@@ -404,75 +500,52 @@ function createIipMapCard({ title, subtitle }) {
 
 
 function createOsmStyle() {
-    // 3 lớp nền: Vệ tinh (mặc định) + Nền thường (CARTO Voyager) + Địa hình (OpenTopoMap) + hillshade nhẹ
-    // Lưu ý: lớp nền raster sẽ hiển thị nhãn/biên giới theo nhà cung cấp tile.
-    // Với các khu vực nhạy cảm về nhãn/đường ranh, dùng nền thường từ CARTO (Voyager) để tránh hiển thị chữ Trung/đường nối.
+    // 2 lớp nền: Nền thường (CARTO Voyager) + Vệ tinh (Esri)
+    // Mặc định: Nền thường
     return {
         version: 8,
         glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
         sources: {
+            osm: {
+                type: "raster",
+                tiles: ["https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"],
+                tileSize: 256,
+                attribution: "© OpenStreetMap contributors, © CARTO"
+            },
             sat: {
                 type: "raster",
                 tiles: ["https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
                 tileSize: 256,
                 attribution: "Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community"
-            },
-            osm: {
-                type: "raster",
-                // "Voyager" cho cảm giác tương tự bản đồ đường phố, nhưng thường không hiển thị nhãn tiếng Trung/đường nối như một số tile OSM.
-                tiles: ["https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"],
-                tileSize: 256,
-                attribution: "© OpenStreetMap contributors, © CARTO"
-            },
-            topo: {
-                type: "raster",
-                tiles: [
-                    "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
-                    "https://b.tile.opentopomap.org/{z}/{x}/{y}.png",
-                    "https://c.tile.opentopomap.org/{z}/{x}/{y}.png"
-                ],
-                tileSize: 256,
-                attribution: "© OpenTopoMap (SRTM)"
-            },
-            hillshade: {
-                type: "raster",
-                tiles: ["https://tiles.wmflabs.org/hillshading/{z}/{x}/{y}.png"],
-                tileSize: 256,
-                attribution: "Hillshade: Wikimedia Labs"
             }
         },
         layers: [
-            { id: "sat", type: "raster", source: "sat", layout: { visibility: "visible" } },
-            { id: "osm", type: "raster", source: "osm", layout: { visibility: "none" } },
-            { id: "topo", type: "raster", source: "topo", layout: { visibility: "none" } },
-            { id: "hillshade", type: "raster", source: "hillshade", layout: { visibility: "none" }, paint: { "raster-opacity": 0.35 } }
+            { id: "osm", type: "raster", source: "osm", layout: { visibility: "visible" } },
+            { id: "sat", type: "raster", source: "sat", layout: { visibility: "none" } }
         ]
     };
 }
 
+
 function updateBasemapButton(btn, mode) {
     if (!btn) return;
-    const label = mode === "topo"
-        ? '<i class="fa-solid fa-mountain"></i> Địa hình'
-        : mode === "osm"
-            ? '<i class="fa-solid fa-map"></i> Nền thường'
-            : '<i class="fa-solid fa-satellite"></i> Vệ tinh';
+    const label = mode === "sat"
+        ? '<i class="fa-solid fa-satellite"></i> Vệ tinh'
+        : '<i class="fa-solid fa-map"></i> Nền thường';
     btn.innerHTML = label;
 }
 
 
-function setBasemapMode(map, mode = "sat") {
+function setBasemapMode(map, mode = "osm") {
     try {
         const showSat = mode === "sat";
         const showOsm = mode === "osm";
-        const showTopo = mode === "topo";
 
         if (map.getLayer("sat")) map.setLayoutProperty("sat", "visibility", showSat ? "visible" : "none");
         if (map.getLayer("osm")) map.setLayoutProperty("osm", "visibility", showOsm ? "visible" : "none");
-        if (map.getLayer("topo")) map.setLayoutProperty("topo", "visibility", showTopo ? "visible" : "none");
-        if (map.getLayer("hillshade")) map.setLayoutProperty("hillshade", "visibility", showTopo ? "visible" : "none");
     } catch (_) {}
 }
+
 
 
 function setProvinceLayerVisible(map, visible) {
@@ -730,6 +803,8 @@ function renderIipMap(mapWrap, geojson, features, meta = {}) {
         await ensureMapIcons(map);
         // Province layer (tắt mặc định)
         await addProvinceLayers(map, meta?.province || "");
+        // Bật sẵn lớp "nền tỉnh"
+        setProvinceLayerVisible(map, true);
         addIslandsLabels(map);
 
         // Click nhãn quần đảo → popup "title"
@@ -953,12 +1028,13 @@ async function appendIndustrialMapToBot(botEl, question, data) {
 
     btnTerrain?.addEventListener("click", () => {
         if (!map) return;
-        const current = btnTerrain.dataset.mode || "sat";
-        const next = current === "sat" ? "osm" : (current === "osm" ? "topo" : "sat");
+        const current = btnTerrain.dataset.mode || "osm";
+        const next = current === "osm" ? "sat" : "osm";
         btnTerrain.dataset.mode = next;
         updateBasemapButton(btnTerrain, next);
         setBasemapMode(map, next);
     });
+
 
 
     btnProvinces?.addEventListener("click", () => {
