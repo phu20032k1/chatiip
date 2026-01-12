@@ -266,6 +266,61 @@ button, a, .input-button, .send-button, .action-btn, .hamburger-btn, .news-btn, 
     color: #111827;
 }
 
+/* =========================
+   ChatGPT-like assistant UI
+   - User giữ bubble (giống ChatGPT)
+   - Bot hiển thị dạng "plain" (bỏ bubble)
+========================= */
+
+/* Bot message: bỏ nền + bo góc, cho content full width */
+.bot-message .message-bubble{
+    background: transparent !important;
+    color: #111827;
+    padding: 0;
+    border-radius: 0;
+    max-width: 100%;
+}
+
+/* Giữ padding nhẹ cho typing indicator để nhìn đỡ trống */
+#typingIndicator .message-bubble{
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: #f3f4f6 !important;
+    display: inline-block;
+}
+
+/* Typography kiểu ChatGPT (markdown) */
+.bot-message .message-bubble p{
+    margin: 0 0 12px;
+}
+.bot-message .message-bubble p:last-child{ margin-bottom: 0; }
+
+.bot-message .message-bubble ul,
+.bot-message .message-bubble ol{
+    margin: 0 0 12px;
+    padding-left: 22px;
+}
+.bot-message .message-bubble li{ margin: 4px 0; }
+
+.bot-message .message-bubble pre.code-block{
+    margin: 0 0 12px;
+    padding: 12px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    overflow: auto;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.bot-message .message-bubble code.inline-code{
+    background: rgba(0,0,0,0.06);
+    border: 1px solid rgba(0,0,0,0.06);
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 0.95em;
+}
+
 /* Pretty-print JSON fallback (when server accidentally returns an object) */
 .json-block{
     margin: 0;
@@ -1577,3 +1632,184 @@ body.theme-dark .img-preview-close{
     bottom: 22%;
   }
 }
+
+
+/* =========================
+   FLOWCHART (Mermaid) + CHART (Chart.js)
+   ========================= */
+.flowchart-viz{
+    width: 100%;
+}
+
+.flowchart-viz .flowchart-card{
+    border-radius: 16px;
+}
+
+.flowchart-viz .flowchart-stage{
+    width: 100%;
+    max-height: 520px; /* tránh quá dài, vẫn có thể scroll */
+    overflow: auto;
+    padding: 6px 8px 10px;
+}
+
+.flowchart-viz .mermaid-wrap{
+    width: 100%;
+    overflow: visible;
+    padding: 6px 0;
+}
+
+.flowchart-viz .mermaid-loading{
+    font-size: 13px;
+    color: #6b7280;
+    padding: 10px 0;
+}
+
+.flowchart-viz .mermaid-error{
+    font-size: 13px;
+    color: #b91c1c;
+    padding: 8px 0;
+}
+
+.flowchart-viz svg{
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+.flowchart-viz svg text{
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif !important;
+    font-size: 14px !important;
+}
+
+/* Explanation (collapsible) */
+.flowchart-explain{
+    margin: 6px 10px 12px;
+}
+.flowchart-explain summary{
+    cursor: pointer;
+    user-select: none;
+    font-weight: 600;
+    font-size: 13px;
+    color: #374151;
+}
+.flowchart-explain-body{
+    margin-top: 8px;
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.55;
+}
+
+
+/* Allow small text buttons inside flowchart header */
+.flowchart-viz .data-block-actions .action-btn.mini{
+    width: auto;
+    min-width: 34px;
+    padding: 0 10px;
+    gap: 6px;
+}
+.flowchart-viz .data-block-actions .action-btn.mini i{
+    font-size: 14px;
+}
+
+/* Fullscreen modal */
+.flowchart-modal{
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+}
+.flowchart-modal.open{
+    display: block;
+}
+.flowchart-modal-backdrop{
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+}
+.flowchart-modal-panel{
+    position: absolute;
+    inset: 24px;
+    background: #fff;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 20px 80px rgba(0,0,0,.25);
+    display: flex;
+    flex-direction: column;
+}
+.flowchart-modal-header{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(0,0,0,.06);
+}
+.flowchart-modal-title{
+    font-weight: 700;
+    font-size: 14px;
+    color: #111827;
+}
+.flowchart-modal-body{
+    padding: 10px 12px;
+    overflow: auto;
+    flex: 1;
+}
+.flowchart-modal-body .mermaid-wrap{
+    width: 100%;
+}
+
+.chartjs-viz .chartjs-wrap{
+    width: 100%;
+    overflow: auto;
+    padding: 8px 0;
+}
+.chartjs-viz canvas{
+    width: 100% !important;
+    max-height: 420px;
+}
+/* mini action button inside data-block header */
+.action-btn.mini{
+    width: 34px;
+    height: 34px;
+    padding: 0;
+}
+.action-btn.mini i{
+    font-size: 14px;
+}
+
+
+/* === IIP LIST + MAP: side-by-side layout (desktop) === */
+.iip-side-by-side{
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.iip-side-left,
+.iip-side-right{
+  min-width: 0;
+}
+
+/* remove extra top margin when map sits in right column */
+.iip-side-right .iip-map-card{ margin-top: 0; }
+
+/* make list height feel balanced with map height */
+.iip-side-left .data-table-wrap{ max-height: 420px; }
+.iip-side-left .data-cards-wrap{
+  max-height: 420px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Responsive: stack vertically on smaller screens */
+@media (max-width: 980px){
+  .iip-side-by-side{
+    grid-template-columns: 1fr;
+  }
+  .iip-side-left .data-table-wrap{ max-height: min(65vh, 650px); }
+  .iip-side-left .data-cards-wrap{ max-height: min(65vh, 650px); }
+}
+

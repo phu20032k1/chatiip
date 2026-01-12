@@ -258,6 +258,157 @@ function extractProvinceFromText(question) {
     return "";
 }
 
+// ====================  COMPARE (MULTI-PROVINCE) HELPERS  ====================
+function isCompareQuery(question) {
+    const t = normalizeViText(question);
+    return /(so\s*sanh|compare|\bvs\b|\bvoi\b|\bv[ơo]i\b)/.test(t);
+}
+
+function extractProvincesFromText(question, maxCount = 2) {
+    const t = normalizeViText(question);
+    const out = [];
+
+    // 1) ưu tiên các tỉnh có trong index KCN
+    try {
+        if (__iipIndex?.normProvinceToReal) {
+            const entries = Array.from(__iipIndex.normProvinceToReal.entries())
+                .sort((a, b) => (b?.[0]?.length || 0) - (a?.[0]?.length || 0)); // tên dài trước
+            for (const [norm, real] of entries) {
+                if (!norm || !real) continue;
+                if (t.includes(norm)) {
+                    if (!out.includes(real)) out.push(real);
+                    if (out.length >= maxCount) return out;
+                }
+            }
+        }
+    } catch (_) {}
+
+    // 2) fallback: scan alias trong PROVINCE_MERGE_FALLBACK (hỗ trợ tỉnh cũ / cách viết khác)
+    try {
+        const entries2 = Array.from(PROVINCE_MERGE_FALLBACK.entries())
+            .sort((a, b) => (b?.[0]?.length || 0) - (a?.[0]?.length || 0));
+        for (const [norm, canon] of entries2) {
+            if (!norm || !canon) continue;
+            if (t.includes(norm)) {
+                if (!out.includes(canon)) out.push(canon);
+                if (out.length >= maxCount) return out;
+            }
+        }
+    } catch (_) {}
+
+    return out.slice(0, maxCount);
+}
+
+function setProvinceHighlightFilter(map, provinces) {
+    try {
+        if (!map || !map.getLayer || !map.getLayer('province-highlight')) return;
+        const list = Array.isArray(provinces) ? provinces : (provinces ? [provinces] : []);
+        const mapped = list.map(p => mapProvinceNameToGeo(p)).filter(Boolean);
+
+        if (!mapped.length) {
+            map.setFilter('province-highlight', ['==', ['get', 'NAME_1'], '']);
+            return;
+        }
+        if (mapped.length === 1) {
+            map.setFilter('province-highlight', ['==', ['get', 'NAME_1'], mapped[0]]);
+            return;
+        }
+        // match nhiều tỉnh
+        map.setFilter('province-highlight', ['in', ['get', 'NAME_1'], ...mapped]);
+    } catch (_) {}
+}
+
+function buildIipListBlockFromFeatures(features, titleText, maxRows = 25) {
+    const list = Array.isArray(features) ? features : [];
+    const total = list.length;
+    const show = list.slice(0, Math.max(1, maxRows));
+
+    const rows = show.map((f, idx) => {
+        const p = f?.properties || {};
+        const name = escapeHtmlGlobal(String(p.name || ""));
+        const addr = escapeHtmlGlobal(String(p.address || ""));
+        const price = escapeHtmlGlobal(String(p.price || ""));
+        return `
+          <tr>
+            <td class="col-stt">${idx + 1}</td>
+            <td>${name || "—"}</td>
+            <td>${addr || "—"}</td>
+            <td class="col-area">${price || "—"}</td>
+          </tr>
+        `;
+    }).join("");
+
+    const note = total > show.length
+        ? `<div class="data-block-sub">Hiển thị ${show.length}/${total}. (Gợi ý: hỏi thêm tiêu chí để lọc nhỏ lại)</div>`
+        : `<div class="data-block-sub">Tổng: ${total} điểm</div>`;
+
+    return `
+      <div class="data-block compare-iip-block">
+        <div class="data-block-header">
+          <div class="data-block-title">${escapeHtmlGlobal(titleText)}</div>
+          ${note}
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table data-table-compact">
+            <thead>
+              <tr>
+                <th class="col-stt">#</th>
+                <th>Tên khu</th>
+                <th>Địa chỉ</th>
+                <th class="col-area">Giá</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+}
+
+function ensureCompareListsInBubble(botEl, geoFeatures, provinces) {
+    try {
+        if (!botEl) return false;
+        const bubble = botEl.querySelector(".message-bubble");
+        if (!bubble) return false;
+
+        // tránh chèn trùng
+        if (bubble.querySelector(".compare-iip-lists")) return false;
+
+        const provs = (Array.isArray(provinces) ? provinces : []).filter(Boolean);
+        if (provs.length < 2) return false;
+
+        const canonList = provs.map(mapProvinceNameToGeo).filter(Boolean);
+        const byProv = new Map();
+        canonList.forEach(c => byProv.set(c, []));
+
+        for (const f of geoFeatures || []) {
+            const pv = mapProvinceNameToGeo(String(f?.properties?.province || "").trim());
+            if (byProv.has(pv)) byProv.get(pv).push(f);
+        }
+
+        // build html blocks
+        const wrap = document.createElement("div");
+        wrap.className = "compare-iip-lists";
+
+        canonList.forEach((canon, i) => {
+            const real = provs[i] || canon;
+            const arr = byProv.get(canon) || [];
+            const html = buildIipListBlockFromFeatures(arr, `Danh sách KCN: ${real} (${arr.length})`, 22);
+            const tmp = document.createElement("div");
+            tmp.innerHTML = html;
+            wrap.appendChild(tmp.firstElementChild);
+        });
+
+        bubble.appendChild(wrap);
+
+        // đảm bảo bubble rộng để table nhìn ổn
+        try { bubble.classList.add("wide"); } catch (_) {}
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
 function buildFeaturePopupHtml(feature) {
     const p = feature?.properties || {};
     const name = escapeHtmlGlobal(p.name || "Khu công nghiệp");
@@ -375,33 +526,39 @@ function focusFeatureOnMap(map, feature) {
     } catch (_) {}
 }
 
+
 function filterFeaturesForQuestion(question, geojson) {
     const idx = __iipIndex || buildIipIndex(geojson);
     const features = idx.features || [];
 
-    const province = extractProvinceFromText(question);
-    const provinceCanon = province ? mapProvinceNameToGeo(province) : "";
-    let filtered = provinceCanon
-        ? features.filter(f => mapProvinceNameToGeo(String(f?.properties?.province || "").trim()) === provinceCanon)
+    const compare = isCompareQuery(question);
+    const provinces = compare ? extractProvincesFromText(question, 2) : [];
+    const province = provinces?.[0] || extractProvinceFromText(question);
+
+    const canonList = (provinces && provinces.length)
+        ? provinces.map(mapProvinceNameToGeo).filter(Boolean)
+        : (province ? [mapProvinceNameToGeo(province)] : []);
+
+    let filtered = canonList.length
+        ? features.filter(f => canonList.includes(mapProvinceNameToGeo(String(f?.properties?.province || "").trim())))
         : features.slice();
 
     // lấy token tìm kiếm (trừ stopwords) để match tên/địa chỉ
     const t = normalizeViText(question);
-    const stop = new Set(["khu", "cong", "nghiep", "cum", "kcn", "ccn", "gia", "thue", "dat", "nha", "xuong", "tai", "o", "co", "la", "nhung", "bao", "nhieu", "so", "sanh", "gan", "nhat"]);
+    const stop = new Set(["khu", "cong", "nghiep", "cum", "kcn", "ccn", "gia", "thue", "dat", "nha", "xuong", "tai", "o", "co", "la", "nhung", "bao", "nhieu", "so", "sanh", "gan", "nhat", "voi", "vs"]);
     const tokens = t.split(" ").filter(w => w.length >= 4 && !stop.has(w)).slice(0, 6);
 
     if (tokens.length) {
         filtered = filtered.filter(f => {
             const name = normalizeViText(f?.properties?.name || "");
             const addr = normalizeViText(f?.properties?.address || "");
-            // match tất cả token
             return tokens.every(tok => name.includes(tok) || addr.includes(tok));
         });
     }
 
-    // limit để map nhẹ (cluster vẫn ok nhưng UI mượt hơn)
-    if (filtered.length > 400) filtered = filtered.slice(0, 400);
-    return { filtered, province };
+    if (filtered.length > 500) filtered = filtered.slice(0, 500);
+
+    return { filtered, province, provinces: provinces && provinces.length ? provinces : (province ? [province] : []) };
 }
 
 function buildGeojsonFromFeatures(features) {
@@ -803,6 +960,8 @@ function renderIipMap(mapWrap, geojson, features, meta = {}) {
         await ensureMapIcons(map);
         // Province layer (tắt mặc định)
         await addProvinceLayers(map, meta?.province || "");
+        // highlight (1 hoặc nhiều tỉnh)
+        setProvinceHighlightFilter(map, meta?.provinces || meta?.province || "");
         // Bật sẵn lớp "nền tỉnh"
         setProvinceLayerVisible(map, true);
         addIslandsLabels(map);
@@ -934,6 +1093,48 @@ function renderIipMap(mapWrap, geojson, features, meta = {}) {
     return map;
 }
 
+
+// ✅ Đưa "danh sách + bản đồ" nằm ngang hàng (2 cột) khi có bảng dữ liệu trong bubble
+function tryMakeIipSideBySide(botEl, mapCard) {
+    try {
+        if (!botEl || !mapCard) return false;
+        const stack = botEl.querySelector(".bot-stack");
+        if (!stack) return false;
+
+        // tránh chạy nhiều lần
+        if (stack.querySelector(".iip-side-by-side")) return false;
+
+        const actions = stack.querySelector(".message-actions");
+        const bubble = stack.querySelector(".message-bubble");
+        if (!actions || !bubble) return false;
+
+        // chỉ áp dụng khi trong bubble có bảng/thẻ dữ liệu (data-block)
+        if (!bubble.querySelector(".data-block")) return false;
+
+        const wrap = document.createElement("div");
+        wrap.className = "iip-side-by-side";
+
+        const left = document.createElement("div");
+        left.className = "iip-side-left";
+
+        const right = document.createElement("div");
+        right.className = "iip-side-right";
+
+        // move nodes
+        left.appendChild(bubble);
+        right.appendChild(mapCard);
+
+        wrap.appendChild(left);
+        wrap.appendChild(right);
+
+        // chèn trước action buttons
+        stack.insertBefore(wrap, actions);
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
 async function appendIndustrialMapToBot(botEl, question, data) {
     if (!botEl) return false;
     if (botEl.querySelector(".iip-map-card")) return false;
@@ -974,9 +1175,19 @@ async function appendIndustrialMapToBot(botEl, question, data) {
     if (!features.length) {
         r = filterFeaturesForQuestion(question, geo);
         features = r.filtered;
-        subtitle = r.province
-            ? `Lọc theo tỉnh: ${r.province}. (${features.length} điểm)`
-            : `Hiển thị theo truy vấn. (${features.length} điểm)`;
+        {
+            const provs = Array.isArray(r?.provinces) ? r.provinces.filter(Boolean) : [];
+            if (provs.length >= 2) {
+                // subtitle cho so sánh 2 tỉnh
+                const canon = provs.map(p => mapProvinceNameToGeo(p));
+                const counts = canon.map(c => features.filter(f => mapProvinceNameToGeo(String(f?.properties?.province || '').trim()) === c).length);
+                subtitle = `So sánh theo tỉnh: ${provs[0]} vs ${provs[1]}. (${counts[0]} + ${counts[1]} điểm)`;
+            } else if (r.province) {
+                subtitle = `Lọc theo tỉnh: ${r.province}. (${features.length} điểm)`;
+            } else {
+                subtitle = `Hiển thị theo truy vấn. (${features.length} điểm)`;
+            }
+        }
         // nếu vẫn trống thì show full dataset
         if (!features.length) {
             features = geo.features.slice();
@@ -986,6 +1197,18 @@ async function appendIndustrialMapToBot(botEl, question, data) {
 
     const stack = botEl.querySelector(".bot-stack");
     const actions = botEl.querySelector(".message-actions");
+
+    // ✅ So sánh 2 tỉnh: luôn chèn danh sách (bảng) nếu backend không trả JSON list
+    const __detectedProvinces = (Array.isArray(r?.provinces) && r.provinces.length)
+        ? r.provinces.filter(Boolean)
+        : ((r?.province ? [r.province] : (vis?.province ? [vis.province] : [])).filter(Boolean));
+
+    try {
+        if (__detectedProvinces.length >= 2) {
+            // chèn bảng danh sách theo từng tỉnh (từ features đã lọc)
+            ensureCompareListsInBubble(botEl, features, __detectedProvinces);
+        }
+    } catch (_) {}
 
     const { card, mapWrap, btnFit, btnToggle, btnTerrain, btnProvinces, hint, subEl } = createIipMapCard({
         title: "Bản đồ khu công nghiệp",
@@ -1004,7 +1227,10 @@ async function appendIndustrialMapToBot(botEl, question, data) {
         if (bubble) bubble.classList.add("wide");
     } catch (_) {}
 
-    const map = renderIipMap(mapWrap, geo, features, { question, province: r?.province || vis?.province || "" });
+    // ✅ Đưa danh sách và bản đồ nằm ngang hàng (desktop)
+    try { tryMakeIipSideBySide(botEl, card); } catch (_) {}
+
+    const map = renderIipMap(mapWrap, geo, features, { question, province: r?.province || vis?.province || "", provinces: __detectedProvinces });
 
     btnFit?.addEventListener("click", () => {
         try {
@@ -1048,11 +1274,10 @@ async function appendIndustrialMapToBot(botEl, question, data) {
         setProvinceLayerVisible(map, next);
         // nếu có tỉnh trong query thì highlight khi bật
         if (next) {
-            const pv = (r?.province || vis?.province || "");
-            if (pv) {
-                const mapped = mapProvinceNameToGeo(pv);
-                try { map.setFilter('province-highlight', ['==', ['get', 'NAME_1'], mapped]); } catch (_) {}
-            }
+            const pvs = (__detectedProvinces && __detectedProvinces.length)
+                ? __detectedProvinces
+                : ((r?.province || vis?.province) ? [r?.province || vis?.province] : []);
+            setProvinceHighlightFilter(map, pvs);
         }
     });
 
@@ -1421,7 +1646,537 @@ function scrollToBottom(behavior = "smooth", force = false) {
 
 
     // ====================  GỬI TIN NHẮN VĂN BẢN  ====================
-    function sendMessage() {
+    
+    // ====================  JSON helpers (deep parse) ====================
+    function tryParseJsonDeep(input, maxDepth = 3) {
+        let cur = input;
+        for (let i = 0; i < maxDepth; i++) {
+            if (typeof cur !== "string") break;
+            const s = cur.trim();
+            if (!s) break;
+            try {
+                cur = JSON.parse(s);
+            } catch (e) {
+                break;
+            }
+        }
+        return cur;
+    }
+
+    function looksLikeStructuredViz(obj) {
+        if (!obj || typeof obj !== "object") return false;
+        const t = String(obj.type || obj.kind || "").toLowerCase();
+        const fmt = String(obj?.payload?.format || obj?.format || "").toLowerCase();
+        return (
+            t.includes("flowchart") ||
+            t.includes("chart") ||
+            t.includes("excel_visualize") ||
+            fmt.includes("mermaid") ||
+            fmt.includes("chartjs")
+        );
+    }
+
+    async function copyTextWithFallback(text) {
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+        } catch (_) {}
+
+        try {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.setAttribute("readonly", "");
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            ta.style.left = "-9999px";
+            document.body.appendChild(ta);
+            ta.select();
+            ta.setSelectionRange(0, ta.value.length);
+            const ok = document.execCommand("copy");
+            document.body.removeChild(ta);
+            return !!ok;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    // ====================  FLOWCHART (Mermaid) ====================
+
+    // Small loader to make Mermaid more reliable across different hosting/CDN blocks.
+    function loadExternalScriptOnce(url, globalName, timeoutMs = 12000) {
+        return new Promise((resolve, reject) => {
+            try {
+                if (globalName && window[globalName]) return resolve(true);
+                const existing = document.querySelector(`script[data-chatiip-src="${url}"]`);
+                if (existing) {
+                    // If a previous attempt is still loading, wait a bit.
+                    const t0 = Date.now();
+                    const tick = () => {
+                        if (globalName && window[globalName]) return resolve(true);
+                        if (Date.now() - t0 > timeoutMs) return reject(new Error("Script load timeout"));
+                        setTimeout(tick, 150);
+                    };
+                    return tick();
+                }
+
+                const s = document.createElement("script");
+                s.src = url;
+                s.async = true;
+                s.defer = true;
+                s.setAttribute("data-chatiip-src", url);
+
+                const timer = setTimeout(() => {
+                    try { s.remove(); } catch (_) {}
+                    reject(new Error("Script load timeout"));
+                }, timeoutMs);
+
+                s.onload = () => {
+                    clearTimeout(timer);
+                    if (globalName && !window[globalName]) {
+                        return reject(new Error("Global not found after load"));
+                    }
+                    resolve(true);
+                };
+                s.onerror = () => {
+                    clearTimeout(timer);
+                    try { s.remove(); } catch (_) {}
+                    reject(new Error("Script load error"));
+                };
+                document.head.appendChild(s);
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
+    async function ensureMermaidLoaded() {
+        if (window.mermaid) return true;
+        const candidates = [
+            // Primary
+            "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js",
+            // Fallbacks
+            "https://unpkg.com/mermaid@10/dist/mermaid.min.js",
+            "https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"
+        ];
+        for (const url of candidates) {
+            try {
+                await loadExternalScriptOnce(url, "mermaid");
+                if (window.mermaid) return true;
+            } catch (_) {}
+        }
+        return !!window.mermaid;
+    }
+    function extractMermaidFlowchart(data) {
+        if (!data || typeof data !== "object") return null;
+        const payload = (data.payload && typeof data.payload === "object") ? data.payload : null;
+
+        const type = String(data.type || payload?.type || "").toLowerCase();
+        const format = String(payload?.format || data.format || "").toLowerCase();
+
+        const code = String(payload?.code || data.code || "").trim();
+        const isFlow = type.includes("flowchart") || format === "mermaid";
+
+        if (!isFlow || !code) return null;
+
+        return {
+            title: String(data.answer || data.title || "Flowchart"),
+            code,
+            explanation: String(payload?.explanation || data.explanation || "").trim()
+        };
+    }
+
+    function ensureMermaidReady() {
+        try {
+            if (window.mermaid && !window.__CHATIIP_MERMAID_READY) {
+                // Use 'loose' to avoid over-strict sanitization breaking unicode labels in some environments.
+                window.mermaid.initialize({
+                    startOnLoad: false,
+                    securityLevel: "loose",
+                    theme: "base",
+                    fontFamily: "ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, Arial, \"Noto Sans\", \"Liberation Sans\", sans-serif",
+                    flowchart: {
+                        useMaxWidth: true,
+                        htmlLabels: true,
+                        nodeSpacing: 18,
+                        rankSpacing: 26,
+                        curve: "linear"
+                    },
+                    themeVariables: {
+                        fontFamily: "ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, Arial, \"Noto Sans\", \"Liberation Sans\", sans-serif",
+                        fontSize: "14px"
+                    }
+                });
+                window.__CHATIIP_MERMAID_READY = true;
+            }
+        } catch (_) {}
+        return !!window.mermaid;
+    }
+
+    function normalizeMermaidCode(code) {
+        let c = String(code || "").trim();
+        // Remove ```mermaid fences if the backend accidentally includes them.
+        if (c.startsWith("```")) {
+            c = c.replace(/^```\s*mermaid\s*/i, "").replace(/^```\s*/i, "");
+            c = c.replace(/```\s*$/i, "").trim();
+        }
+        return c;
+    }
+
+    // Make Mermaid more tolerant by quoting node labels (helps with Vietnamese/parentheses/special chars).
+    
+    function forceMermaidDirection(code, dir = "LR") {
+        let s = String(code || "").replace(/\r\n?/g, "\n").trim();
+        const lines = s.split("\n");
+        if (!lines.length) return s;
+        const first = lines[0].trim();
+        const m = first.match(/^(flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i);
+        if (m) {
+            lines[0] = `${m[1]} ${String(dir || "LR").toUpperCase()}`;
+            return lines.join("\n");
+        }
+        // if header missing, add one
+        return `flowchart ${String(dir || "LR").toUpperCase()}\n` + s;
+    }
+
+function quoteMermaidLabels(code) {
+        let s = String(code || "").replace(/\r\n?/g, "\n").trim();
+
+        // Ensure header exists
+        if (!/^\s*(flowchart|graph)\b/i.test(s)) {
+            s = "flowchart LR\n" + s;
+        }
+
+        const wrap = (re, openTok, closeTok) => {
+            s = s.replace(re, (m, id, label) => {
+                const t = String(label || "").trim();
+                // already quoted?
+                if (/^\".*\"$/.test(t) || /^'.*'$/.test(t)) return m;
+                const escaped = t.replace(/\\/g, "\\\\").replace(/\"/g, '\\"');
+                return `${id}${openTok}\"${escaped}\"${closeTok}`;
+            });
+        };
+
+        // Common node label forms:
+        wrap(/(\b[A-Za-z][\w-]*)\s*\{([^}\n\r]*?)\}/g, "{", "}");            // decision: A{label}
+        wrap(/(\b[A-Za-z][\w-]*)\s*\[([^\]\n\r]*?)\]/g, "[", "]");          // rect:     A[label]
+        wrap(/(\b[A-Za-z][\w-]*)\s*\(\(([^\)\n\r]*?)\)\)/g, "((", "))");    // circle:   A((label))
+        wrap(/(\b[A-Za-z][\w-]*)\s*\(([^)\n\r]*?)\)/g, "(", ")");           // round:    A(label)
+        wrap(/(\b[A-Za-z][\w-]*)\s*\[\[([^\]\n\r]*?)\]\]/g, "[[", "]]" );    // subroutine A[[label]]
+
+        return s;
+    }
+    function toggleMermaidDirection(code) {
+        let s = String(code || "").replace(/\r\n?/g, "\n").trim();
+        // normalize header to flowchart
+        const lines = s.split("\n");
+        if (!lines.length) return s;
+        const first = lines[0].trim();
+        const m = first.match(/^(flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i);
+        if (m) {
+            const dir = m[2].toUpperCase();
+            const next = (dir === "LR") ? "TD" : "LR";
+            lines[0] = `${m[1]} ${next}`;
+            return lines.join("\n");
+        }
+        // no header: default to LR
+        return "flowchart LR\n" + s;
+    }
+
+    function buildFlowchartModal() {
+        let modal = document.querySelector(".flowchart-modal");
+        if (modal) return modal;
+
+        modal = document.createElement("div");
+        modal.className = "flowchart-modal";
+        modal.innerHTML = `
+          <div class="flowchart-modal-backdrop" data-action="close"></div>
+          <div class="flowchart-modal-panel" role="dialog" aria-modal="true">
+            <div class="flowchart-modal-header">
+              <div class="flowchart-modal-title">Flowchart</div>
+              <button class="action-btn mini" type="button" data-action="close" aria-label="Close">Đóng</button>
+            </div>
+            <div class="flowchart-modal-body">
+              <div class="mermaid-wrap"><div class="mermaid-loading">Đang vẽ sơ đồ…</div></div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+
+        const close = () => modal.classList.remove("open");
+        modal.addEventListener("click", (e) => {
+            const a = e.target?.getAttribute?.("data-action");
+            if (a === "close") close();
+        });
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") close();
+        });
+        return modal;
+    }
+
+
+    async function renderMermaidInto(el, code) {
+        const ok = await ensureMermaidLoaded();
+        if (!ok) throw new Error("Mermaid not loaded");
+        if (!ensureMermaidReady()) throw new Error("Mermaid init failed");
+
+        const text = quoteMermaidLabels(normalizeMermaidCode(code));
+        const id = "mmd_" + Math.random().toString(36).slice(2);
+
+        // Clear placeholder
+        el.innerHTML = "";
+
+        // Mermaid API differs across versions / builds.
+        // Try a few known signatures before falling back.
+        let res;
+        try {
+            // Mermaid v10+: render(id, text) -> Promise<{svg, bindFunctions}>
+            res = await window.mermaid.render(id, text);
+        } catch (e1) {
+            try {
+                // Some builds accept a container argument
+                res = await window.mermaid.render(id, text, el);
+            } catch (e2) {
+                // Older API via mermaidAPI
+                if (window.mermaid?.mermaidAPI?.render) {
+                    res = await new Promise((resolve, reject) => {
+                        try {
+                            window.mermaid.mermaidAPI.render(id, text, (svgCode, bindFunctions) => {
+                                resolve({ svg: svgCode, bindFunctions });
+                            }, el);
+                        } catch (e3) {
+                            reject(e3);
+                        }
+                    });
+                } else {
+                    throw e2;
+                }
+            }
+        }
+        el.innerHTML = res.svg;
+        // Make the rendered SVG responsive + improve typography
+        try {
+            const svg = el.querySelector("svg");
+            if (svg) {
+                svg.removeAttribute("height");
+                svg.setAttribute("width", "100%");
+                svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
+                svg.style.maxWidth = "100%";
+                svg.style.height = "auto";
+                svg.classList.add("mmd-svg");
+                // Ensure viewBox exists so CSS scaling works well
+                if (!svg.getAttribute("viewBox")) {
+                    try {
+                        const bb = svg.getBBox();
+                        if (bb && bb.width && bb.height) svg.setAttribute("viewBox", `${bb.x} ${bb.y} ${bb.width} ${bb.height}`);
+                    } catch (_) {}
+                }
+            }
+            el.classList.add("mermaid-rendered");
+        } catch (_) {}
+        try { res.bindFunctions?.(el); } catch (_) {}
+    }
+
+    function handleFlowchartResponse(data, botEl) {
+        const flow = extractMermaidFlowchart(data);
+        if (!flow || !botEl) return false;
+
+        botEl.querySelectorAll(".flowchart-viz").forEach(n => n.remove());
+
+        const stack = botEl.querySelector(".bot-stack");
+        const actions = botEl.querySelector(".message-actions");
+
+        const wrap = document.createElement("div");
+        wrap.className = "flowchart-viz";
+        wrap.style.marginTop = "10px";
+
+                let currentCode = forceMermaidDirection(flow.code, "LR");
+        
+                wrap.innerHTML = `
+                  <div class="data-block flowchart-card">
+                    <div class="data-block-header">
+                      <div class="data-block-title">Flowchart</div>
+                      <div class="data-block-actions">
+                        <button class="action-btn mini" type="button" data-action="flow-fit" aria-label="Fit">
+                          <span class="action-tooltip">Vừa khung</span>Fit
+                        </button>
+                        <button class="action-btn mini" type="button" data-action="flow-dir" aria-label="Toggle direction">
+                          <span class="action-tooltip">Đổi hướng</span>Ngang/Dọc
+                        </button>
+                        <button class="action-btn mini" type="button" data-action="flow-full" aria-label="Fullscreen">
+                          <span class="action-tooltip">Phóng to</span>Full
+                        </button>
+                        <button class="action-btn mini" type="button" data-action="copy-mermaid" aria-label="Copy Mermaid">
+                          <i class="fa-regular fa-copy"></i>
+                          <span class="action-tooltip">Copy Mermaid</span>
+                        </button>
+                      </div>
+                    </div>
+        
+                    <div class="flowchart-stage">
+                      <div class="mermaid-wrap"><div class="mermaid-loading">Đang vẽ sơ đồ…</div></div>
+                    </div>
+        
+                    ${flow.explanation ? `<details class="flowchart-explain"><summary>Giải thích</summary><div class="flowchart-explain-body">${formatMessage(flow.explanation)}</div></details>` : ""}
+                  </div>
+                `;
+        
+                const host = wrap.querySelector(".mermaid-wrap");
+                const stage = wrap.querySelector(".flowchart-stage");
+        
+                const renderNow = async () => {
+                    if (!host) return;
+                    host.innerHTML = `<div class="mermaid-loading">Đang vẽ sơ đồ…</div>`;
+                    try {
+                        await renderMermaidInto(host, currentCode);
+                    } catch (e) {
+                        host.innerHTML = `<div class="mermaid-error">Không thể vẽ sơ đồ.<br><pre class="json-block">${escapeHtmlGlobal(currentCode)}</pre></div>`;
+                    }
+                };
+        
+                wrap.querySelector('[data-action="copy-mermaid"]')?.addEventListener("click", async () => {
+                    const ok = await copyTextWithFallback(currentCode);
+                    if (ok) showTempTooltip(wrap.querySelector('[data-action="copy-mermaid"]'), "Đã sao chép");
+                    else alert("Không thể copy. Bạn hãy copy thủ công trong khối code.");
+                });
+        
+                wrap.querySelector('[data-action="flow-fit"]')?.addEventListener("click", () => {
+                    if (stage) { stage.scrollTop = 0; stage.scrollLeft = 0; }
+                });
+        
+                wrap.querySelector('[data-action="flow-dir"]')?.addEventListener("click", async () => {
+                    currentCode = toggleMermaidDirection(currentCode);
+                    await renderNow();
+                    if (stage) { stage.scrollTop = 0; stage.scrollLeft = 0; }
+                });
+        
+                wrap.querySelector('[data-action="flow-full"]')?.addEventListener("click", async () => {
+                    const modal = buildFlowchartModal();
+                    modal.classList.add("open");
+                    const titleEl = modal.querySelector(".flowchart-modal-title");
+                    if (titleEl) titleEl.textContent = flow.title || "Flowchart";
+        
+                    const modalHost = modal.querySelector(".mermaid-wrap");
+                    if (!modalHost) return;
+        
+                    modalHost.innerHTML = `<div class="mermaid-loading">Đang vẽ sơ đồ…</div>`;
+                    try {
+                        await renderMermaidInto(modalHost, currentCode);
+                    } catch (e) {
+                        modalHost.innerHTML = `<div class="mermaid-error">Không thể vẽ sơ đồ.<br><pre class="json-block">${escapeHtmlGlobal(currentCode)}</pre></div>`;
+                    }
+                });
+        
+                (async () => { await renderNow(); })();
+        
+        // Force wide bubble + prefer cards on mobile
+        try {
+            const bubble = botEl.querySelector('.message-bubble');
+            if (bubble) bubble.classList.add('wide');
+            autoPreferCardsOnMobile(botEl);
+        } catch (_) {}
+
+        if (stack && actions) stack.insertBefore(wrap, actions);
+        else if (stack) stack.appendChild(wrap);
+        else botEl.appendChild(wrap);
+
+        setTimeout(scrollToBottom, 80);
+        return true;
+    }
+
+    // ====================  CHART (Chart.js) ====================
+    function extractChartJs(data) {
+        if (!data || typeof data !== "object") return null;
+        const payload = (data.payload && typeof data.payload === "object") ? data.payload : null;
+
+        const type = String(data.type || payload?.type || "").toLowerCase();
+        const format = String(payload?.format || data.format || "").toLowerCase();
+
+        const isChart = type.includes("chart") || format === "chartjs";
+        if (!isChart) return null;
+
+        // 1) payload.config (Chart.js config)
+        if (payload?.config && typeof payload.config === "object") {
+            return { title: String(data.answer || data.title || "Biểu đồ"), config: payload.config };
+        }
+
+        // 2) payload.data/options/type (Chart.js pieces)
+        if (payload?.data && (payload?.type || payload?.options)) {
+            const cfg = { type: payload.type || "bar", data: payload.data, options: payload.options || {} };
+            return { title: String(data.answer || data.title || "Biểu đồ"), config: cfg };
+        }
+
+        // 3) labels + values shorthand
+        const labels = payload?.labels || data.labels;
+        const values = payload?.values || data.values;
+        if (Array.isArray(labels) && Array.isArray(values) && labels.length && values.length) {
+            const cfg = {
+                type: payload?.chartType || payload?.type || "bar",
+                data: {
+                    labels,
+                    datasets: [{ label: payload?.seriesName || "Giá trị", data: values }]
+                },
+                options: payload?.options || {}
+            };
+            return { title: String(data.answer || data.title || "Biểu đồ"), config: cfg };
+        }
+
+        return null;
+    }
+
+    function handleChartJsResponse(data, botEl) {
+        const chart = extractChartJs(data);
+        if (!chart || !botEl) return false;
+        if (!window.Chart) return false; // chart.js chưa load
+
+        botEl.querySelectorAll(".chartjs-viz").forEach(n => n.remove());
+
+        const stack = botEl.querySelector(".bot-stack");
+        const actions = botEl.querySelector(".message-actions");
+
+        const wrap = document.createElement("div");
+        wrap.className = "chartjs-viz";
+        wrap.style.marginTop = "10px";
+
+        wrap.innerHTML = `
+          <div class="data-block">
+            <div class="data-block-header">
+              <div class="data-block-title">${escapeHtmlGlobal(chart.title || "Biểu đồ")}</div>
+            </div>
+            <div class="chartjs-wrap">
+              <canvas></canvas>
+            </div>
+          </div>
+        `;
+
+        const canvas = wrap.querySelector("canvas");
+        try {
+            const ctx = canvas.getContext("2d");
+            // destroy old if any stored
+            if (canvas._chart) { try { canvas._chart.destroy(); } catch (_) {} }
+            canvas._chart = new window.Chart(ctx, chart.config);
+        } catch (e) {
+            wrap.querySelector(".chartjs-wrap").innerHTML = `<pre class="json-block">${escapeHtmlGlobal(JSON.stringify(chart.config, null, 2))}</pre>`;
+        }
+
+        // Force wide bubble + prefer cards on mobile
+        try {
+            const bubble = botEl.querySelector('.message-bubble');
+            if (bubble) bubble.classList.add('wide');
+            autoPreferCardsOnMobile(botEl);
+        } catch (_) {}
+
+        if (stack && actions) stack.insertBefore(wrap, actions);
+        else if (stack) stack.appendChild(wrap);
+        else botEl.appendChild(wrap);
+
+        setTimeout(scrollToBottom, 80);
+        return true;
+    }
+
+
+function sendMessage() {
 
         const message = messageInput.value.trim();
         if (!message) return;
@@ -1456,14 +2211,26 @@ function scrollToBottom(behavior = "smooth", force = false) {
             .then(data => {
                 hideTypingIndicator();
                 const answerRaw = (data && (data.answer ?? data.reply)) ?? "No response.";
-                const botEl = addBotMessage(answerRaw, { messageId, question: message });
 
-                handleExcelVisualizeResponse(data, botEl);
+                // ✅ Nếu answer trả về là JSON string (chart/flowchart...) → parse để render
+                const parsedFromAnswer = (typeof answerRaw === "string") ? tryParseJsonDeep(answerRaw, 3) : null;
+                const effectiveData = (parsedFromAnswer && typeof parsedFromAnswer === "object" && looksLikeStructuredViz(parsedFromAnswer))
+                    ? parsedFromAnswer
+                    : data;
+
+                const displayText = (parsedFromAnswer && typeof parsedFromAnswer === "object" && looksLikeStructuredViz(parsedFromAnswer))
+                    ? (parsedFromAnswer.answer ?? parsedFromAnswer.message ?? parsedFromAnswer.text ?? answerRaw)
+                    : answerRaw;
+
+                const botEl = addBotMessage(displayText, { messageId, question: message });
+
+                // ✅ Chart cũ (excel_visualize) + chart mới (chartjs) + flowchart (mermaid)
+                handleExcelVisualizeResponse(effectiveData, botEl);
+                handleChartJsResponse(effectiveData, botEl);
+                handleFlowchartResponse(effectiveData, botEl);
 
                 // ✅ Luôn hiện bản đồ khi hỏi về KCN/CCN (hoặc khi server trả excel_visualize)
-                Promise.resolve(appendIndustrialMapToBot(botEl, message, data)).catch(() => {});
-
-                // ✅ UPDATE ANSWER VÀO GOOGLE
+                Promise.resolve(appendIndustrialMapToBot(botEl, message, effectiveData)).catch(() => {});// ✅ UPDATE ANSWER VÀO GOOGLE
                 logToGoogle({
                     message_id: messageId,
                     session_id: getSessionId(),
@@ -1933,20 +2700,124 @@ function scrollToBottom(behavior = "smooth", force = false) {
             .join('');
     }
 
-    // ====================  FORMAT MESSAGE (bold & newline)  ====================
+    // ====================  FORMAT MESSAGE (markdown-lite like ChatGPT)  ====================
+    // Mục tiêu: hiển thị giống ChatGPT hơn (paragraph, list, code block, inline code) nhưng vẫn an toàn.
+    function formatInlineMarkdown(s) {
+        // escape trước để không bị inject HTML
+        let out = escapeHtmlGlobal(String(s ?? ""));
+
+        // **bold**
+        out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+        // `inline code`
+        out = out.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+
+        return out;
+    }
+
     function formatMessage(text) {
         if (!text) return "";
 
-        text = text.replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;");
+        // normalize newline
+        let src = String(text).replace(/\r\n/g, "\n");
 
-        text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-        text = text.replace(/\n/g, "<br>");
+        // 1) tách code block ``` ``` ra trước
+        const codeBlocks = [];
+        src = src.replace(/```([a-z0-9_-]+)?\n([\s\S]*?)```/gi, (_m, _lang, code) => {
+            const idx = codeBlocks.length;
+            codeBlocks.push(String(code ?? ""));
+            return `@@CODEBLOCK_${idx}@@`;
+        });
 
-        text = linkifyHtml(text);
+        const restoreCodeBlocks = (html) => {
+            return String(html).replace(/@@CODEBLOCK_(\d+)@@/g, (_m, n) => {
+                const i = Number(n);
+                const code = (i >= 0 && i < codeBlocks.length) ? codeBlocks[i] : "";
+                const safe = escapeHtmlGlobal(code.replace(/\n$/, ""));
+                return `<pre class="code-block"><code>${safe}</code></pre>`;
+            });
+        };
 
-        return text;
+        const lines = src.split("\n");
+        const htmlParts = [];
+
+        let para = [];
+        let listType = null; // 'ul' | 'ol'
+        let listItems = [];
+
+        const flushParagraph = () => {
+            if (!para.length) return;
+            const body = para.map(formatInlineMarkdown).join("<br>");
+            htmlParts.push(`<p>${restoreCodeBlocks(body)}</p>`);
+            para = [];
+        };
+
+        const flushList = () => {
+            if (!listType) return;
+            const items = listItems.map(li => `<li>${li}</li>`).join("");
+            htmlParts.push(`<${listType}>${restoreCodeBlocks(items)}</${listType}>`);
+            listType = null;
+            listItems = [];
+        };
+
+        for (const rawLine of lines) {
+            const line = String(rawLine ?? "");
+            const trimmed = line.trim();
+
+            // blank line -> kết thúc đoạn / list
+            if (!trimmed) {
+                flushParagraph();
+                flushList();
+                continue;
+            }
+
+            // code block đứng riêng 1 dòng
+            if (/^@@CODEBLOCK_\d+@@$/.test(trimmed)) {
+                flushParagraph();
+                flushList();
+                htmlParts.push(restoreCodeBlocks(trimmed));
+                continue;
+            }
+
+            // checkbox list: - [x] item / - [ ] item
+            const mCb = trimmed.match(/^[-*]\s+\[(x| )\]\s+(.*)$/i);
+            if (mCb) {
+                const checked = String(mCb[1]).toLowerCase() === 'x';
+                const content = `${checked ? '✅' : '☐'} ${mCb[2]}`;
+                if (listType && listType !== 'ul') flushList();
+                listType = 'ul';
+                listItems.push(restoreCodeBlocks(formatInlineMarkdown(content)));
+                continue;
+            }
+
+            // unordered list: - item / * item / • item
+            const mUl = trimmed.match(/^[-*•]\s+(.*)$/);
+            if (mUl) {
+                if (listType && listType !== 'ul') flushList();
+                listType = 'ul';
+                listItems.push(restoreCodeBlocks(formatInlineMarkdown(mUl[1])));
+                continue;
+            }
+
+            // ordered list: 1. item
+            const mOl = trimmed.match(/^\d+\.\s+(.*)$/);
+            if (mOl) {
+                if (listType && listType !== 'ol') flushList();
+                listType = 'ol';
+                listItems.push(restoreCodeBlocks(formatInlineMarkdown(mOl[1])));
+                continue;
+            }
+
+            // line bình thường -> paragraph
+            flushList();
+            para.push(line);
+        }
+
+        flushParagraph();
+        flushList();
+
+        // linkify cuối cùng (giữ nguyên thẻ HTML)
+        return linkifyHtml(htmlParts.join(""));
     }
 
     function escapeHtml(unsafe) {
@@ -2117,11 +2988,22 @@ function scrollToBottom(behavior = "smooth", force = false) {
             const data = await res.json();
             const answerRaw = (data && (data.answer ?? data.reply)) ?? 'No response.';
 
-            const normalized = normalizeBotMessage(answerRaw);
-            bubble.innerHTML = normalized.html;
-            handleExcelVisualizeResponse(data, botEl);
+            const parsedFromAnswer = (typeof answerRaw === "string") ? tryParseJsonDeep(answerRaw, 3) : null;
+            const effectiveData = (parsedFromAnswer && typeof parsedFromAnswer === "object" && looksLikeStructuredViz(parsedFromAnswer))
+                ? parsedFromAnswer
+                : data;
 
-            logToGoogle({
+            const displayText = (parsedFromAnswer && typeof parsedFromAnswer === "object" && looksLikeStructuredViz(parsedFromAnswer))
+                ? (parsedFromAnswer.answer ?? parsedFromAnswer.message ?? parsedFromAnswer.text ?? answerRaw)
+                : answerRaw;
+
+            const normalized = normalizeBotMessage(displayText);
+            bubble.innerHTML = normalized.html;
+
+            handleExcelVisualizeResponse(effectiveData, botEl);
+            handleChartJsResponse(effectiveData, botEl);
+            handleFlowchartResponse(effectiveData, botEl);
+logToGoogle({
                 event: 'regenerate',
                 message_id: messageId,
                 session_id: getSessionId(),
@@ -2241,10 +3123,22 @@ function scrollToBottom(behavior = "smooth", force = false) {
             const data = await postChat(newText);
             hideTypingIndicator();
             const answerRaw = (data && (data.answer ?? data.reply)) ?? 'No response.';
-            const botEl = addBotMessage(answerRaw, { messageId, question: newText });
-            handleExcelVisualizeResponse(data, botEl);
 
-            logToGoogle({
+            const parsedFromAnswer = (typeof answerRaw === "string") ? tryParseJsonDeep(answerRaw, 3) : null;
+            const effectiveData = (parsedFromAnswer && typeof parsedFromAnswer === "object" && looksLikeStructuredViz(parsedFromAnswer))
+                ? parsedFromAnswer
+                : data;
+
+            const displayText = (parsedFromAnswer && typeof parsedFromAnswer === "object" && looksLikeStructuredViz(parsedFromAnswer))
+                ? (parsedFromAnswer.answer ?? parsedFromAnswer.message ?? parsedFromAnswer.text ?? answerRaw)
+                : answerRaw;
+
+            const botEl = addBotMessage(displayText, { messageId, question: newText });
+
+            handleExcelVisualizeResponse(effectiveData, botEl);
+            handleChartJsResponse(effectiveData, botEl);
+            handleFlowchartResponse(effectiveData, botEl);
+logToGoogle({
                 event: 'edit',
                 message_id: messageId,
                 session_id: getSessionId(),
@@ -2568,11 +3462,22 @@ function scrollToBottom(behavior = "smooth", force = false) {
             .then(data => {
                 hideTypingIndicator();
                 const answerRaw = (data && (data.answer ?? data.reply)) ?? "No response.";
-                const botEl = addBotMessage(answerRaw, { messageId, question: text });
 
-                handleExcelVisualizeResponse(data, botEl);
+                const parsedFromAnswer = (typeof answerRaw === "string") ? tryParseJsonDeep(answerRaw, 3) : null;
+                const effectiveData = (parsedFromAnswer && typeof parsedFromAnswer === "object" && looksLikeStructuredViz(parsedFromAnswer))
+                    ? parsedFromAnswer
+                    : data;
 
-                // ✅ log answered (điểm bạn đang thiếu)
+                const displayText = (parsedFromAnswer && typeof parsedFromAnswer === "object" && looksLikeStructuredViz(parsedFromAnswer))
+                    ? (parsedFromAnswer.answer ?? parsedFromAnswer.message ?? parsedFromAnswer.text ?? answerRaw)
+                    : answerRaw;
+
+                const botEl = addBotMessage(displayText, { messageId, question: text  });
+
+                handleExcelVisualizeResponse(effectiveData, botEl);
+                handleChartJsResponse(effectiveData, botEl);
+                handleFlowchartResponse(effectiveData, botEl);
+// ✅ log answered (điểm bạn đang thiếu)
                 logToGoogle({
                     message_id: messageId,
                     session_id: getSessionId(),
