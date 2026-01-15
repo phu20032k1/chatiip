@@ -11,6 +11,63 @@
   const STORAGE_THEME = "chatiip_theme"; // 'light' | 'dark'
   const STORAGE_SETTINGS = "chatiip_settings"; // { notifications: boolean }
 
+  let pendingRegisterEmail = null;
+  let forgotOtpSent = false;
+
+
+    // Backend API
+  const API_BASE =
+    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+      ? "http://localhost:8080/api"
+      : "/api";
+  // Khi deploy đổi thành: "https://ten-backend-cua-ban.xyz/api"
+
+  async function api(path, options = {}) {
+    const res = await fetch(API_BASE + path, {
+      method: options.method || "GET",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      credentials: "include", // để nhận cookie token
+      body: options.body ? JSON.stringify(options.body) : undefined
+    });
+
+    let data = {};
+    try {
+      data = await res.json();
+    } catch (_) {}
+
+    if (!res.ok) {
+      throw new Error(data.message || "Có lỗi xảy ra, vui lòng thử lại.");
+    }
+    return data;
+  }
+
+
+
+
+  function applyAvatarElement(el, user) {
+    if (!el) return;
+
+    const hasImage =
+      user &&
+      typeof user.avatarUrl === "string" &&
+      user.avatarUrl.trim().length > 0;
+
+    if (hasImage) {
+      el.style.backgroundImage = `url(${user.avatarUrl})`;
+      el.style.backgroundSize = "cover";
+      el.style.backgroundPosition = "center";
+      el.textContent = "";
+    } else {
+      el.style.backgroundImage = "none";
+      const src =
+        (user && (user.name || user.email || user.provider)) || "U";
+      const letter = src.trim().charAt(0).toUpperCase() || "U";
+      el.textContent = letter;
+    }
+  }
+
   function safeParse(json, fallback) {
     try {
       return JSON.parse(json);
@@ -27,6 +84,89 @@
 
   function writeJSON(key, val) {
     localStorage.setItem(key, JSON.stringify(val));
+  }
+
+  function enhanceOtpInput(hiddenInputId) {
+    const hidden = document.getElementById(hiddenInputId);
+    if (!hidden) return;
+
+    // tránh khởi tạo lại nhiều lần
+    if (hidden.dataset.enhanced === "1") return;
+    hidden.dataset.enhanced = "1";
+
+    // dùng hidden để submit, hiển thị 6 ô riêng
+    hidden.type = "hidden";
+
+    const container = document.createElement("div");
+    container.className = "otp-input-row";
+
+    const inputs = [];
+    const total = 6;
+
+    function syncHidden() {
+      hidden.value = inputs.map((inp) => (inp.value || "").trim()).join("");
+    }
+
+    for (let i = 0; i < total; i++) {
+      const cell = document.createElement("input");
+      cell.type = "text";
+      cell.inputMode = "numeric";
+      cell.maxLength = 1;
+      cell.autocomplete = "one-time-code";
+      cell.className = "otp-input-cell";
+
+      cell.addEventListener("input", (e) => {
+        const v = (e.target.value || "").replace(/\D/g, "");
+        e.target.value = v.slice(0, 1);
+        syncHidden();
+        if (v && i < total - 1) {
+          inputs[i + 1].focus();
+          inputs[i + 1].select();
+        }
+      });
+
+      cell.addEventListener("keydown", (e) => {
+        if (e.key === "Backspace" && !e.target.value && i > 0) {
+          inputs[i - 1].focus();
+        }
+      });
+
+      container.appendChild(cell);
+      inputs.push(cell);
+    }
+
+    hidden.parentNode.insertBefore(container, hidden);
+  }
+
+  function injectOtpStyles() {
+    if (document.getElementById("otp-style")) return;
+    const style = document.createElement("style");
+    style.id = "otp-style";
+    style.textContent = `
+      .otp-input-row {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin: 10px 0 18px 0;
+      }
+      .otp-input-cell {
+        width: 38px;
+        height: 46px;
+        text-align: center;
+        font-size: 18px;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.9);
+        outline: none;
+        transition: all 0.15s ease;
+        background: rgba(15, 23, 42, 0.02);
+      }
+      .otp-input-cell:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+        background: #fff;
+      }
+    `;
+    document.head.appendChild(style);
   }
 
   function uuid() {
@@ -240,6 +380,7 @@ function injectAuthUI() {
               <input class="auth-input" id="loginPassword" type="password" placeholder="Nhập mật khẩu" required />
 
               <button class="auth-submit" type="submit">Đăng nhập</button>
+              <div class="auth-hint"><button class="link-btn" id="forgotOpenBtn" type="button">Quên mật khẩu?</button></div>
               <div class="auth-hint">Chưa có tài khoản? <button class="link-btn" id="gotoRegister" type="button">Đăng ký ngay</button></div>
             </form>
           </div>
@@ -251,6 +392,9 @@ function injectAuthUI() {
 
               <label class="auth-label">Email</label>
               <input class="auth-input" id="regEmail" type="email" placeholder="vd: ten@email.com" required />
+
+              <label class="auth-label">Số điện thoại</label>
+              <input class="auth-input" id="regPhone" type="tel" placeholder="vd: 0912 345 678" />
 
               <label class="auth-label">Mật khẩu</label>
               <input class="auth-input" id="regPassword" type="password" placeholder="Tối thiểu 6 ký tự" minlength="6" required />
@@ -266,6 +410,85 @@ function injectAuthUI() {
       `;
       document.body.appendChild(overlay);
     }
+
+
+    // OTP overlay (đẹp hơn prompt)
+    if (!document.getElementById("otpOverlay")) {
+      const overlay = document.createElement("div");
+      overlay.id = "otpOverlay";
+      overlay.className = "auth-overlay";
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.innerHTML = `
+        <div class="auth-modal" role="dialog" aria-modal="true" aria-label="Xác thực email">
+          <button class="auth-close" id="otpCloseBtn" aria-label="Đóng">&times;</button>
+          <div class="auth-title">Nhập mã OTP</div>
+          <div class="auth-subtitle">Vui lòng kiểm tra email và nhập mã gồm 6 chữ số.</div>
+          <form id="otpForm" class="auth-form">
+            <label class="auth-label">Mã OTP</label>
+            <input
+              class="auth-input"
+              id="otpCodeInput"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
+              placeholder="123456"
+              required
+            />
+            <button class="auth-submit" type="submit">Xác nhận</button>
+            <div class="auth-hint">Không nhận được mã? Kiểm tra thư rác hoặc thử lại sau vài phút.</div>
+          </form>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    }
+
+    // Forgot password overlay
+    if (!document.getElementById("forgotOverlay")) {
+      const overlay = document.createElement("div");
+      overlay.id = "forgotOverlay";
+      overlay.className = "auth-overlay";
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.innerHTML = `
+        <div class="auth-modal" role="dialog" aria-modal="true" aria-label="Quên mật khẩu">
+          <button class="auth-close" id="forgotCloseBtn" aria-label="Đóng">&times;</button>
+          <div class="auth-title">Quên mật khẩu</div>
+          <div class="auth-subtitle">Nhập email để nhận mã OTP đổi mật khẩu, rồi điền OTP + mật khẩu mới.</div>
+          <form id="forgotForm" class="auth-form">
+            <label class="auth-label">Email</label>
+            <input class="auth-input" id="forgotEmail" type="email" required placeholder="vd: ten@email.com" />
+
+            <label class="auth-label">Mã OTP</label>
+            <input
+              class="auth-input"
+              id="forgotCode"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
+              placeholder="123456"
+            />
+
+            <label class="auth-label">Mật khẩu mới</label>
+            <input
+              class="auth-input"
+              id="forgotPassword"
+              type="password"
+              minlength="6"
+              placeholder="Tối thiểu 6 ký tự"
+            />
+
+            <button class="auth-submit" type="submit">Gửi / Đổi mật khẩu</button>
+            <div class="auth-hint">
+              Bước 1: nhập email và bấm nút để gửi mã OTP.<br/>
+              Bước 2: nhập OTP + mật khẩu mới và bấm lại để đổi.
+            </div>
+          </form>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    }
+
 
     // Account overlay (only used on pages without sidebar)
     if (!document.getElementById("accountOverlay")) {
@@ -289,6 +512,15 @@ function injectAuthUI() {
 
             <div class="settings-group">
               <div class="settings-title">Cài đặt</div>
+
+              <div class="setting-row">
+                <div class="setting-text">
+                  <div class="setting-title">Ảnh đại diện</div>
+                  <div class="setting-desc">Đổi avatar hiển thị (link ảnh).</div>
+                </div>
+                <button class="pill-btn" id="changeAvatarBtn" type="button">Đổi avatar</button>
+              </div>
+
 
               <div class="setting-row">
                 <div class="setting-text">
@@ -458,7 +690,7 @@ function injectAuthUI() {
       const avatar = document.getElementById("accountAvatar");
       if (name) name.textContent = user.name || "Tài khoản";
       if (email) email.textContent = user.email || user.provider || "";
-      if (avatar) avatar.textContent = (user.name || "U").trim().charAt(0).toUpperCase();
+      applyAvatarElement(avatar, user);
     }
 
     // settings
@@ -476,7 +708,7 @@ function injectAuthUI() {
     const avatar = document.getElementById("modalAvatar");
     if (name) name.textContent = user?.name || "Tài khoản";
     if (email) email.textContent = user?.email || user?.provider || "";
-    if (avatar) avatar.textContent = (user?.name || "U").trim().charAt(0).toUpperCase();
+    applyAvatarElement(avatar, user || null);
 
     const settings = getSettings();
     const notif = document.getElementById("modalNotifications");
@@ -529,81 +761,95 @@ function injectAuthUI() {
   }
 
   // --------------- Auth actions ----------------
-  function handleRegister(name, email, password) {
-    const users = getUsers();
-    const normalizedEmail = (email || "").trim().toLowerCase();
+  async function handleRegister(name, email, password, phone) {
+    const trimmedName = (name || "").trim();
+    const trimmedEmail = (email || "").trim().toLowerCase();
+    const trimmedPhone = (phone || "").trim();
 
-    if (!name.trim()) {
-      showToast("Vui lòng nhập họ & tên.", "error");
+    if (!trimmedName) {
+      showToast("Vui lòng nhập họ tên.", "error");
       return;
     }
-
-    if (!normalizedEmail) {
-      showToast("Vui lòng nhập email hợp lệ.", "error");
+    if (!trimmedEmail) {
+      showToast("Vui lòng nhập email.", "error");
       return;
     }
-
-    if ((password || "").length < 6) {
+    if (!password || password.length < 6) {
       showToast("Mật khẩu tối thiểu 6 ký tự.", "error");
       return;
     }
 
-    const exists = users.some((u) => (u.email || "").toLowerCase() === normalizedEmail);
-    if (exists) {
-      showToast("Email này đã được đăng ký. Hãy đăng nhập nhé!", "error");
-      return;
-    }
-
-    const user = {
-      id: "u_" + uuid(),
-      name: name.trim(),
-      email: normalizedEmail,
-      provider: "password",
-      password_hash: pwHash(password),
-      createdAt: new Date().toISOString(),
-    };
-
-    users.push(user);
-    setUsers(users);
-
-    // auto login
-    const sessionUser = { id: user.id, name: user.name, email: user.email, provider: user.provider };
-    setCurrentUser(sessionUser);
-
-    showToast(`Tạo tài khoản thành công! Xin chào ${sessionUser.name}.`, "success");
-    closeOverlay("authOverlay");
-    syncAllUI();
-  }
-
-  function handleLogin(email, password) {
-    const users = getUsers();
-    const normalizedEmail = (email || "").trim().toLowerCase();
-
-    if (!normalizedEmail) {
-      showToast("Vui lòng nhập email.", "error");
-      return;
-    }
-
-    const user = users.find((u) => (u.email || "").toLowerCase() === normalizedEmail);
-    if (!user) {
-      showToast("Không tìm thấy tài khoản. Hãy đăng ký trước nhé!", "error");
-      return;
-    }
-
-    if (user.provider === "password") {
-      if (pwHash(password || "") !== user.password_hash) {
-        showToast("Sai mật khẩu. Vui lòng thử lại.", "error");
+    if (trimmedPhone) {
+      const digits = trimmedPhone.replace(/\D/g, "");
+      if (digits.length < 8 || digits.length > 15) {
+        showToast("Số điện thoại không hợp lệ.", "error");
         return;
       }
     }
 
-    const sessionUser = { id: user.id, name: user.name, email: user.email, provider: user.provider };
-    setCurrentUser(sessionUser);
+    try {
+      await api("/auth/register", {
+        method: "POST",
+        body: {
+          name: trimmedName,
+          email: trimmedEmail,
+          password,
+          phone: trimmedPhone || undefined
+        }
+      });
 
-    showToast(`Đăng nhập thành công! Xin chào ${sessionUser.name}.`, "success");
-    closeOverlay("authOverlay");
-    syncAllUI();
+      pendingRegisterEmail = trimmedEmail;
+
+      // reset ô OTP
+      const otpInput = document.getElementById("otpCodeInput");
+      if (otpInput) {
+        otpInput.value = "";
+        const row = otpInput.previousElementSibling;
+        if (row && row.classList && row.classList.contains("otp-input-row")) {
+          row.querySelectorAll("input").forEach((inp) => (inp.value = ""));
+        }
+      }
+
+      injectOtpStyles();
+      enhanceOtpInput("otpCodeInput");
+      openOverlay("otpOverlay");
+      showToast("Đã gửi mã OTP đến email. Vui lòng kiểm tra hộp thư và nhập mã.", "info");
+    } catch (err) {
+      showToast(err.message || "Có lỗi khi đăng ký.", "error");
+    }
   }
+
+  async function handleLogin(email, password) {
+    const trimmedEmail = (email || "").trim().toLowerCase();
+
+    if (!trimmedEmail) {
+      showToast("Vui lòng nhập email.", "error");
+      return;
+    }
+    if (!password) {
+      showToast("Vui lòng nhập mật khẩu.", "error");
+      return;
+    }
+
+    try {
+      const data = await api("/auth/login", {
+        method: "POST",
+        body: {
+          email: trimmedEmail,
+          password
+        }
+      });
+
+      const user = data.user;
+      setCurrentUser(user);
+      closeOverlay("authOverlay");
+      syncAllUI();
+      showToast("Đăng nhập thành công!", "success");
+    } catch (err) {
+      showToast(err.message || "Đăng nhập thất bại.", "error");
+    }
+  }
+
 
   function handleSocial(provider) {
     const users = getUsers();
@@ -635,7 +881,177 @@ function injectAuthUI() {
   }
 
   // --------------- Event wiring ----------------
+
+  async function handleOtpSubmit(e) {
+    e.preventDefault();
+    const codeInput = document.getElementById("otpCodeInput");
+    const code = codeInput ? codeInput.value.trim() : "";
+    if (!pendingRegisterEmail) {
+      showToast("Không tìm thấy email cần xác thực. Hãy đăng ký lại.", "error");
+      closeOverlay("otpOverlay");
+      return;
+    }
+    if (!code) {
+      showToast("Bạn chưa nhập mã OTP.", "error");
+      return;
+    }
+
+    try {
+      const data = await api("/auth/verify-email", {
+        method: "POST",
+        body: {
+          email: pendingRegisterEmail,
+          code
+        }
+      });
+      const user = data.user;
+      setCurrentUser(user);
+      closeOverlay("otpOverlay");
+      closeOverlay("authOverlay");
+      syncAllUI();
+      showToast("Xác thực email thành công! Bạn đã được đăng nhập.", "success");
+      pendingRegisterEmail = null;
+    } catch (err) {
+      showToast(err.message || "Xác thực OTP thất bại.", "error");
+    }
+  }
+
+  async function handleForgotSubmit(e) {
+    e.preventDefault();
+    const emailInput = document.getElementById("forgotEmail");
+    const codeInput = document.getElementById("forgotCode");
+    const pwInput = document.getElementById("forgotPassword");
+
+    const email = emailInput ? emailInput.value.trim().toLowerCase() : "";
+    const code = codeInput ? codeInput.value.trim() : "";
+    const newPassword = pwInput ? pwInput.value : "";
+
+    if (!email) {
+      showToast("Vui lòng nhập email.", "error");
+      return;
+    }
+
+    // Bước 1: chỉ gửi OTP
+    if (!forgotOtpSent) {
+      try {
+        const data = await api("/auth/request-password-reset", {
+          method: "POST",
+          body: { email }
+        });
+        forgotOtpSent = true;
+        showToast("Đã gửi mã OTP (nếu email tồn tại). Vui lòng kiểm tra hộp thư.", "info");
+
+        // Hỗ trợ dev: tự điền mã OTP nếu backend trả về debugCode
+        if (data && data.debugCode && codeInput) {
+          codeInput.value = data.debugCode;
+          const row = codeInput.previousElementSibling;
+          if (row && row.classList && row.classList.contains("otp-input-row")) {
+            const digits = String(data.debugCode).split("");
+            row.querySelectorAll("input").forEach((inp, idx) => {
+              inp.value = digits[idx] || "";
+            });
+          }
+        }
+
+        // focus ô nhập OTP đầu tiên
+        if (codeInput) {
+          const row = codeInput.previousElementSibling;
+          const firstCell =
+            row && row.classList && row.classList.contains("otp-input-row")
+              ? row.querySelector("input.otp-input-cell")
+              : null;
+          if (firstCell) firstCell.focus();
+          else codeInput.focus();
+        }
+      } catch (err) {
+        showToast(err.message || "Không thể gửi mã OTP.", "error");
+      }
+      return;
+    }
+
+    // Bước 2: đã có OTP, tiến hành đổi mật khẩu
+    if (!code) {
+      showToast("Vui lòng nhập mã OTP.", "error");
+      return;
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      showToast("Mật khẩu mới tối thiểu 6 ký tự.", "error");
+      return;
+    }
+
+    try {
+      await api("/auth/reset-password", {
+        method: "POST",
+        body: {
+          email,
+          code,
+          newPassword
+        }
+      });
+      showToast("Đổi mật khẩu thành công. Vui lòng đăng nhập lại.", "success");
+      closeOverlay("forgotOverlay");
+      forgotOtpSent = false;
+
+      if (emailInput) emailInput.value = "";
+      if (codeInput) {
+        codeInput.value = "";
+        const row = codeInput.previousElementSibling;
+        if (row && row.classList && row.classList.contains("otp-input-row")) {
+          row.querySelectorAll("input").forEach((inp) => (inp.value = ""));
+        }
+      }
+      if (pwInput) pwInput.value = "";
+    } catch (err) {
+      showToast(err.message || "Đổi mật khẩu thất bại.", "error");
+    }
+  }
+
+  async function handleChangeAvatar() {
+    const user = getCurrentUser();
+    if (!user) {
+      showToast("Vui lòng đăng nhập trước.", "error");
+      return;
+    }
+    const current = user.avatarUrl || "";
+    const url = window.prompt("Nhập URL ảnh avatar (jpg/png):", current);
+    if (!url) return;
+
+    try {
+      const data = await api("/auth/me", {
+        method: "PUT",
+        body: { avatarUrl: url.trim() }
+      });
+      setCurrentUser(data.user);
+      syncAllUI();
+      showToast("Đã cập nhật avatar.", "success");
+    } catch (err) {
+      showToast(err.message || "Không thể cập nhật avatar.", "error");
+    }
+  }
+
   function wireEvents() {
+    document.getElementById("forgotOpenBtn")?.addEventListener("click", () => {
+      closeOverlay("authOverlay");
+      openOverlay("forgotOverlay");
+      forgotOtpSent = false;
+
+      const emailInput = document.getElementById("forgotEmail");
+      const codeInput = document.getElementById("forgotCode");
+      const pwInput = document.getElementById("forgotPassword");
+      if (emailInput) emailInput.value = "";
+      if (codeInput) {
+        codeInput.value = "";
+        const row = codeInput.previousElementSibling;
+        if (row && row.classList && row.classList.contains("otp-input-row")) {
+          row.querySelectorAll("input").forEach((inp) => (inp.value = ""));
+        }
+      }
+      if (pwInput) pwInput.value = "";
+    });
+
+    document.getElementById("forgotForm")?.addEventListener("submit", handleForgotSubmit);
+
     // Open/close auth
     document.getElementById("loginOpenBtn")?.addEventListener("click", () => {
       setAuthTab("login");
@@ -648,6 +1064,11 @@ function injectAuthUI() {
     });
 
     document.getElementById("authCloseBtn")?.addEventListener("click", () => closeOverlay("authOverlay"));
+    document.getElementById("forgotCloseBtn")?.addEventListener("click", () => {
+      closeOverlay("forgotOverlay");
+      forgotOtpSent = false;
+    });
+
 
     // Close on backdrop click
     document.getElementById("authOverlay")?.addEventListener("click", (e) => {
@@ -666,6 +1087,7 @@ function injectAuthUI() {
       e.preventDefault();
       const name = document.getElementById("regName")?.value || "";
       const email = document.getElementById("regEmail")?.value || "";
+      const phone = document.getElementById("regPhone")?.value || "";
       const pw1 = document.getElementById("regPassword")?.value || "";
       const pw2 = document.getElementById("regPassword2")?.value || "";
 
@@ -673,7 +1095,7 @@ function injectAuthUI() {
         showToast("Mật khẩu nhập lại không khớp.", "error");
         return;
       }
-      handleRegister(name, email, pw1);
+      handleRegister(name, email, pw1, phone);
     });
 
     document.getElementById("loginForm")?.addEventListener("submit", (e) => {
@@ -735,6 +1157,11 @@ function injectAuthUI() {
       if (e.target && e.target.id === "accountOverlay") closeOverlay("accountOverlay");
     });
 
+    const changeAvatarBtn = document.getElementById("changeAvatarBtn");
+    if (changeAvatarBtn) {
+      changeAvatarBtn.addEventListener("click", handleChangeAvatar);
+    }
+
     document.getElementById("modalLogoutBtn")?.addEventListener("click", logout);
 
     // Modal settings events
@@ -755,6 +1182,15 @@ function injectAuthUI() {
       showToast(next === "dark" ? "Đã bật chế độ tối." : "Đã bật chế độ sáng.", "info");
     });
 
+    // OTP overlay events
+    document.getElementById("otpForm")?.addEventListener("submit", handleOtpSubmit);
+    document.getElementById("otpCloseBtn")?.addEventListener("click", () => {
+      closeOverlay("otpOverlay");
+    });
+    document.getElementById("otpOverlay")?.addEventListener("click", (e) => {
+      if (e.target && e.target.id === "otpOverlay") closeOverlay("otpOverlay");
+    });
+
     // ESC to close
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
@@ -770,6 +1206,9 @@ function injectAuthUI() {
     adjustAuthBarPosition();
     window.addEventListener("resize", adjustAuthBarPosition);
     initThemeFromStorage();
+    injectOtpStyles();
+    enhanceOtpInput("otpCodeInput");
+    enhanceOtpInput("forgotCode");
     wireEvents();
     syncAllUI();
   });

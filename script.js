@@ -41,6 +41,30 @@ async function logToGoogle(payload) {
 
 
 
+
+// ====================  BACKEND CHAT SESSION (HISTORY)  ====================
+const CHAT_HISTORY_BASE_URL = "https://luat-lao-dong.onrender.com/history";
+
+function getBackendSessionId() {
+    try {
+        return localStorage.getItem("chatiip_backend_session_id") || "";
+    } catch (_) {
+        return "";
+    }
+}
+
+function setBackendSessionId(sid) {
+    try {
+        if (sid) localStorage.setItem("chatiip_backend_session_id", sid);
+    } catch (_) {}
+}
+
+function clearBackendSessionId() {
+    try {
+        localStorage.removeItem("chatiip_backend_session_id");
+    } catch (_) {}
+}
+
 // ====================  ESCAPE HTML (GLOBAL)  ====================
 function escapeHtmlGlobal(unsafe) {
     return String(unsafe ?? "")
@@ -519,7 +543,7 @@ function focusFeatureOnMap(map, feature) {
         const center = [Number(c[0]), Number(c[1])];
         map.easeTo({ center, zoom: 12, duration: 650 });
 
-        new maplibregl.Popup({ closeButton: true, closeOnClick: true })
+        new mapboxgl.Popup({ closeButton: true, closeOnClick: true })
             .setLngLat(center)
             .setHTML(buildFeaturePopupHtml(feature))
             .addTo(map);
@@ -657,30 +681,14 @@ function createIipMapCard({ title, subtitle }) {
 
 
 function createOsmStyle() {
-    // 2 lớp nền: Nền thường (CARTO Voyager) + Vệ tinh (Esri)
-    // Mặc định: Nền thường
-    return {
-        version: 8,
-        glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
-        sources: {
-            osm: {
-                type: "raster",
-                tiles: ["https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"],
-                tileSize: 256,
-                attribution: "© OpenStreetMap contributors, © CARTO"
-            },
-            sat: {
-                type: "raster",
-                tiles: ["https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
-                tileSize: 256,
-                attribution: "Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community"
-            }
-        },
-        layers: [
-            { id: "osm", type: "raster", source: "osm", layout: { visibility: "visible" } },
-            { id: "sat", type: "raster", source: "sat", layout: { visibility: "none" } }
-        ]
-    };
+    // Dùng trực tiếp custom style Mapbox của bạn (map trắng tự thiết kế trong Studio)
+    // Không dùng thêm raster OSM / Satellite nữa.
+    try {
+        return "mapbox://styles/phu20032k1/cmkf0692r002f01sehtqv3nfo";
+    } catch (e) {
+        // fallback: vẫn dùng style custom đó
+        return "mapbox://styles/phu20032k1/cmkf0692r002f01sehtqv3nfo";
+    }
 }
 
 
@@ -920,7 +928,7 @@ async function addProvinceLayers(map, selectedProvinceText = "") {
 function fitBoundsToFeatures(map, features) {
     try {
         if (!features || !features.length) return;
-        const bounds = new maplibregl.LngLatBounds();
+        const bounds = new mapboxgl.LngLatBounds();
         for (const f of features) {
             const c = f?.geometry?.coordinates;
             if (Array.isArray(c) && c.length >= 2) bounds.extend([Number(c[0]), Number(c[1])]);
@@ -932,8 +940,8 @@ function fitBoundsToFeatures(map, features) {
 }
 
 function renderIipMap(mapWrap, geojson, features, meta = {}) {
-    if (typeof maplibregl === "undefined") {
-        mapWrap.innerHTML = `<div class="iip-map-error">⚠️ Không tải được thư viện bản đồ (maplibre-gl.js).</div>`;
+    if (typeof mapboxgl === "undefined") {
+        mapWrap.innerHTML = `<div class="iip-map-error">⚠️ Không tải được thư viện bản đồ (mapbox-gl.js).</div>`;
         return null;
     }
 
@@ -944,14 +952,14 @@ function renderIipMap(mapWrap, geojson, features, meta = {}) {
         }
     } catch (_) { }
 
-    const map = new maplibregl.Map({
+    const map = new mapboxgl.Map({
         container: mapWrap,
         style: createOsmStyle(),
         center: [105.8342, 21.0278],
         zoom: 5.1
     });
 
-    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "top-right");
 
     const useCluster = (features?.length || 0) > 40;
     const data = buildGeojsonFromFeatures(features?.length ? features : (geojson?.features || []));
@@ -973,7 +981,7 @@ function renderIipMap(mapWrap, geojson, features, meta = {}) {
                 if (!f) return;
                 const coordinates = (f.geometry?.coordinates || []).slice();
                 const title = f?.properties?.title || f?.properties?.name || "";
-                new maplibregl.Popup({ closeButton: true, closeOnClick: true })
+                new mapboxgl.Popup({ closeButton: true, closeOnClick: true })
                     .setLngLat(coordinates)
                     .setHTML(`<div style="font-weight:700;">${escapeHtmlGlobal(String(title))}</div>`)
                     .addTo(map);
@@ -1077,7 +1085,7 @@ function renderIipMap(mapWrap, geojson, features, meta = {}) {
             if (!f) return;
 
             const coordinates = f.geometry.coordinates.slice();
-            new maplibregl.Popup({ closeButton: true, closeOnClick: true })
+            new mapboxgl.Popup({ closeButton: true, closeOnClick: true })
                 .setLngLat(coordinates)
                 .setHTML(buildFeaturePopupHtml(f))
                 .addTo(map);
@@ -2202,13 +2210,21 @@ function sendMessage() {
 
         showTypingIndicator();
 
+        const backendSessionId = getBackendSessionId();
+        const payload = backendSessionId
+            ? { question: message, session_id: backendSessionId }
+            : { question: message };
+
         fetch("https://luat-lao-dong.onrender.com/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question: message })
+            body: JSON.stringify(payload)
         })
             .then(res => res.json())
             .then(data => {
+                const backendSessionIdFromServer = data && data.session_id;
+                if (backendSessionIdFromServer) setBackendSessionId(backendSessionIdFromServer);
+
                 hideTypingIndicator();
                 const answerRaw = (data && (data.answer ?? data.reply)) ?? "No response.";
 
@@ -2409,6 +2425,7 @@ function sendMessage() {
                     ${renderActionButton('dislike', 'fa-regular fa-thumbs-down', 'Không đồng ý')}
                     ${renderActionButton('refresh', 'fa-solid fa-arrows-rotate', 'Trả lời lại')}
                     ${renderActionButton('copy', 'fa-regular fa-copy', 'Sao chép')}
+                    ${renderActionButton('share', 'fa-solid fa-share-nodes', 'Chia sẻ')}
                 </div>
             </div>
         `;
@@ -2435,7 +2452,55 @@ function sendMessage() {
         return botMessageElement;
     }
 
-    // ====================  EXCEL VISUALIZE (CHART/TABLE)  ====================
+    
+    // ====================  LOAD CHAT HISTORY FROM BACKEND (PER SESSION)  ====================
+    async function loadChatHistoryFromServer() {
+        const backendSessionId = getBackendSessionId();
+        if (!backendSessionId || !chatContainer) return;
+
+        try {
+            const res = await fetch(`${CHAT_HISTORY_BASE_URL}/${encodeURIComponent(backendSessionId)}`);
+            if (!res.ok) {
+                // Nếu session không tồn tại nữa thì xoá để tạo mới ở lần hỏi sau
+                if (res.status === 404 || res.status === 410) {
+                    clearBackendSessionId();
+                }
+                return;
+            }
+
+            const data = await res.json();
+            const messages = Array.isArray(data.messages) ? data.messages : [];
+            if (!messages.length) return;
+
+            // Xoá các message hiện tại (nếu có) nhưng giữ welcome để ẩn bằng logic dưới
+            const existing = chatContainer.querySelectorAll('.message');
+            existing.forEach(m => m.remove());
+
+            if (welcomeMessage) {
+                welcomeMessage.style.display = 'none';
+            }
+            messageInputContainer.classList.remove('centered');
+            chatContainer.classList.add('has-messages');
+
+            messages.forEach(m => {
+                const role = String(m.role || m.type || '').toLowerCase();
+                const content = m.content || '';
+                if (!content) return;
+
+                if (role === 'human' || role === 'user') {
+                    addUserMessage(content);
+                } else if (role === 'ai' || role === 'assistant' || role === 'system') {
+                    addBotMessage(content);
+                }
+            });
+
+            setTimeout(() => scrollToBottom('auto', true), 100);
+        } catch (err) {
+            console.warn('Không thể tải lịch sử hội thoại', err);
+        }
+    }
+
+// ====================  EXCEL VISUALIZE (CHART/TABLE)  ====================
     function extractExcelVisualize(data) {
         if (!data || typeof data !== "object") return null;
 
@@ -3259,6 +3324,21 @@ logToGoogle({
             return;
         }
 
+
+        if (action === 'share') {
+            try {
+                if (navigator.share) {
+                    await navigator.share({ text: answerText });
+                    showTempTooltip(btn, 'Đã chia sẻ');
+                } else {
+                    await navigator.clipboard.writeText(answerText);
+                    showTempTooltip(btn, 'Đã sao chép');
+                }
+            } catch (err) {
+                showTempTooltip(btn, 'Không thể chia sẻ');
+            }
+            return;
+        }
         if (action === 'refresh') {
             await regenerateAnswerFor(botEl);
             return;
@@ -3453,13 +3533,21 @@ logToGoogle({
             status: "asked"
         });
 
+        const backendSessionId = getBackendSessionId();
+        const payload = backendSessionId
+            ? { question: text, session_id: backendSessionId }
+            : { question: text };
+
         fetch("https://luat-lao-dong.onrender.com/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question: text })
+            body: JSON.stringify(payload)
         })
             .then(res => res.json())
             .then(data => {
+                const backendSessionIdFromServer = data && data.session_id;
+                if (backendSessionIdFromServer) setBackendSessionId(backendSessionIdFromServer);
+
                 hideTypingIndicator();
                 const answerRaw = (data && (data.answer ?? data.reply)) ?? "No response.";
 
@@ -3542,6 +3630,10 @@ logToGoogle({
                 }
             }
 
+            
+            // Reset session_id của backend (bắt đầu hội thoại mới)
+            clearBackendSessionId();
+
             // Đưa input về trạng thái centered
             messageInputContainer.classList.add('centered');
             chatContainer.classList.remove('has-messages');
@@ -3595,7 +3687,15 @@ logToGoogle({
 
     });
 
-    // ⭐ Auto scroll: chỉ khi thêm message mới (không scroll khi tương tác map / tile load)
+    
+    // ⭐ TẢI LỊCH SỬ HỘI THOẠI KHI VÀO LẠI TRANG (DỰA TRÊN session_id TỪ BACKEND)
+    try {
+        loadChatHistoryFromServer();
+    } catch (e) {
+        console.warn('Không thể load lịch sử hội thoại lúc khởi động', e);
+    }
+
+// ⭐ Auto scroll: chỉ khi thêm message mới (không scroll khi tương tác map / tile load)
     try {
         const chatObserver = new MutationObserver((mutations) => {
             let should = false;

@@ -1542,6 +1542,7 @@ body.theme-dark .img-preview-close{
 .iip-map-wrap{
   width: 100%;
   height: 420px;
+  min-height: 420px;
 }
 
 /* Prevent chat container from scrolling when interacting with the map (mobile) */
@@ -1792,11 +1793,13 @@ body.theme-dark .img-preview-close{
   min-width: 0;
 }
 
-/* remove extra top margin when map sits in right column */
-.iip-side-right .iip-map-card{ margin-top: 0; }
+/* Map card bên phải */
+.iip-side-right .iip-map-card{
+  margin-top: 0;
+}
 
-/* make list height feel balanced with map height */
-.iip-side-left .data-table-wrap{ max-height: 420px; }
+/* Bảng & map cao vừa phải, bằng nhau (khoảng 420px) */
+.iip-side-left .data-table-wrap,
 .iip-side-left .data-cards-wrap{
   max-height: 420px;
   overflow: auto;
@@ -1804,12 +1807,19 @@ body.theme-dark .img-preview-close{
   overscroll-behavior: contain;
 }
 
-/* Responsive: stack vertically on smaller screens */
+/* Map bên phải khớp chiều cao với bảng */
+.iip-side-right .iip-map-wrap{
+  height: 420px;
+}
+
+/* Responsive: xếp dọc trên màn hình nhỏ */
 @media (max-width: 980px){
   .iip-side-by-side{
     grid-template-columns: 1fr;
   }
-  .iip-side-left .data-table-wrap{ max-height: min(65vh, 650px); }
-  .iip-side-left .data-cards-wrap{ max-height: min(65vh, 650px); }
+  .iip-side-left .data-table-wrap,
+  .iip-side-left .data-cards-wrap{
+    max-height: min(65vh, 650px);
+  }
 }
 

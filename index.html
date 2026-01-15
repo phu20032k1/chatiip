@@ -59,7 +59,7 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
     <!-- Mapbox GL -->
-    <link href="https://unpkg.com/maplibre-gl@5.15.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet" />
 
     <script>document.write('<link rel=\"stylesheet\" href=\"' + window.__CHATIIP_ASSET('style.css') + '\">');</script>
 
@@ -236,7 +236,12 @@
     </div>
 
     <!-- SCRIPT -->
-    <script src="https://unpkg.com/maplibre-gl@5.15.0/dist/maplibre-gl.js"></script>
+    <!-- Mapbox GL JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
+    <script>
+        // Mapbox access token (public)
+        mapboxgl.accessToken = 'pk.eyJ1IjoicGh1MjAwMzJrMSIsImEiOiJjbWs0b28wcTYwYWlqM2RvbHJyeXVyY2tqIn0.sEOs-ZNvPqEXsSiOVRBw1Q';
+    </script>
 
     
     <!-- Mermaid (flowchart) + Chart.js (chart) -->
