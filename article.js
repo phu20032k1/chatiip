@@ -14,6 +14,19 @@ const dateEl = document.getElementById("articleDate");
 const contentEl = document.getElementById("articleContent");
 const relatedListEl = document.getElementById("relatedList");
 
+// Back button: ưu tiên quay lại trạng thái tìm kiếm/scroll của news bằng history.back()
+const articleBackBtn = document.getElementById("articleBackBtn");
+if (articleBackBtn) {
+  articleBackBtn.addEventListener("click", () => {
+    try {
+      if (history.length > 1) history.back();
+      else window.location.href = "news.html";
+    } catch (_) {
+      window.location.href = "news.html";
+    }
+  });
+}
+
 // ===============================
 // ⭐ Skeleton Loading
 // ===============================

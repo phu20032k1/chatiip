@@ -145,36 +145,113 @@
 
 <body data-page="chat">
 
-    <!-- Hamburger -->
-    <button class="hamburger-btn" id="hamburgerBtn">
-        <i class="fas fa-bars"></i>
-    </button>
+    <div class="app-shell">
 
-    <!-- Tin tức -->
-    <button class="news-btn" id="newsBtn">
-        <i class="fas fa-newspaper"></i>
-    </button>
-
-    <!-- SIDEBAR -->
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h2>ChatIIP</h2>
-        </div>
-
-        <div class="sidebar-menu">
-            <button class="menu-item" id="newChatBtn">
-                <i class="fas fa-plus"></i> Đoạn chat mới
+        <!-- LEFT RAIL (ChatGPT-style) -->
+        <nav class="rail" id="rail" aria-label="Thanh công cụ">
+            <button class="rail-btn" id="toggleSidebarBtn" type="button" title="Mở thanh bên" aria-label="Mở thanh bên">
+                <i class="fas fa-columns"></i>
             </button>
 
-            <!-- văn bản pháp luật -->
-            <button class="menu-item" id="lawsBtn">
-                <i class="fas fa-scale-balanced"></i> Văn bản pháp luật
+            <button class="rail-btn" id="newChatRailBtn" type="button" title="Đoạn chat mới" aria-label="Đoạn chat mới">
+                <i class="fas fa-pen-to-square"></i>
             </button>
-        </div>
-    </div>
 
-    <!-- MAIN CONTAINER -->
-    <div class="main-container">
+            <button class="rail-btn" id="searchRailBtn" type="button" title="Tìm lịch sử" aria-label="Tìm lịch sử">
+                <i class="fas fa-magnifying-glass"></i>
+            </button>
+
+            <button class="rail-btn" id="newsRailBtn" type="button" title="Tin tức" aria-label="Tin tức">
+                <i class="fas fa-newspaper"></i>
+            </button>
+
+            <button class="rail-btn" id="lawsRailBtn" type="button" title="Văn bản pháp luật" aria-label="Văn bản pháp luật">
+                <i class="fas fa-scale-balanced"></i>
+            </button>
+
+            <div class="rail-spacer"></div>
+
+            <button class="rail-account" id="railAccountBtn" type="button" title="Tài khoản" aria-label="Tài khoản">
+                <div class="rail-avatar" id="railAvatar">U</div>
+            </button>
+        </nav>
+
+        <!-- SIDEBAR PANEL (toggle by rail button) -->
+        <aside class="sidebar-panel" id="sidebarPanel" aria-hidden="true">
+            <div class="sidebar-panel-header">
+                <div class="brand">
+                    <div class="brand-title">ChatIIP</div>
+                    <div class="brand-subtitle">Trợ lý AI</div>
+                </div>
+                <button class="sidebar-close" id="sidebarCloseBtn" type="button" aria-label="Đóng thanh bên" title="Đóng">
+                    <i class="fas fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="sidebar-panel-actions">
+                <button class="sidebar-primary" id="newChatBtn" type="button">
+                    <i class="fas fa-plus"></i>
+                    <span>Đoạn chat mới</span>
+                </button>
+            </div>
+
+            <div class="sidebar-panel-search">
+                <i class="fas fa-magnifying-glass"></i>
+                <input id="historySearchInput" type="text" placeholder="Tìm trong lịch sử..." autocomplete="off" />
+            </div>
+
+            <div class="sidebar-panel-body">
+
+            <div class="sidebar-section sidebar-section-history">
+                <div class="sidebar-section-title">Lịch sử</div>
+                <div class="sidebar-history" id="chatHistoryList">
+                    <div class="sidebar-empty" id="historyEmpty">Đăng nhập để xem lịch sử chat.</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section sidebar-section-other">
+                <div class="sidebar-section-title">Khác</div>
+                <button class="sidebar-link" id="panelNewsBtn" type="button">
+                    <i class="fas fa-newspaper"></i>
+                    <span>Tin tức</span>
+                </button>
+                <button class="sidebar-link" id="lawsBtn" type="button">
+                    <i class="fas fa-scale-balanced"></i>
+                    <span>Văn bản pháp luật</span>
+                </button>
+            </div>
+
+            </div>
+            <div class="sidebar-panel-footer">
+                <button class="sidebar-account-btn" id="sidebarAccountBtn" type="button" aria-label="Tài khoản & cài đặt">
+                    <div class="avatar" id="sidebarAccountAvatar">U</div>
+                    <div class="sidebar-account-meta">
+                        <div class="sidebar-account-name" id="sidebarAccountName">Tài khoản</div>
+                        <div class="sidebar-account-email" id="sidebarAccountEmail">Chưa đăng nhập</div>
+                    </div>
+                    <i class="fas fa-gear"></i>
+                </button>
+            </div>
+        </aside>
+
+        <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
+
+        <!-- MAIN CONTAINER -->
+        <div class="main-container">
+
+        <!-- MOBILE TOP BAR (shown on phones; replaces the left rail) -->
+        <header class="mobile-topbar" id="mobileTopbar" aria-label="Thanh trên (di động)">
+            <button class="mobile-topbar-btn" id="mobileSidebarBtn" type="button" aria-label="Mở thanh bên" title="Mở thanh bên">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="mobile-topbar-title" id="mobileTopbarTitle">ChatIIP</div>
+
+            <div class="mobile-topbar-spacer"></div>
+
+            <button class="mobile-topbar-btn" id="mobileNewChatBtn" type="button" aria-label="Đoạn chat mới" title="Đoạn chat mới">
+                <i class="fas fa-pen-to-square"></i>
+            </button>
+        </header>
 
         <div class="chat-container" id="chatContainer">
             <div class="welcome-message" id="welcomeMessage">
@@ -204,6 +281,7 @@
                 <input type="file" id="fileInput" multiple hidden>
 
             </div>
+        </div>
         </div>
     </div>
 
@@ -249,22 +327,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
     <script>document.write('<script src=\"' + window.__CHATIIP_ASSET('script.js') + '\"><\/script>');</script>
-
-    <!-- NEWS FULLPAGE -->
-    <script>
-        document.getElementById("newsBtn")?.addEventListener("click", () => {
-            window.location.href = "news.html?v=" + encodeURIComponent(window.CHATIIP_VERSION||"");
-        });
-    </script>
-
-    <!-- trang tra cứu văn bản -->
-    <script>
-        document.getElementById("lawsBtn")?.addEventListener("click", () => {
-            window.location.href = "laws.html?v=" + encodeURIComponent(window.CHATIIP_VERSION||"");
-        });
-    </script>
-
-
 
     <script>document.write('<script src=\"' + window.__CHATIIP_ASSET('auth.js') + '\"><\/script>');</script>
 </body>

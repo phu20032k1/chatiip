@@ -195,11 +195,20 @@
     try {
       localStorage.setItem("chatiip_user_id", user?.id || "anonymous");
     } catch {}
+
+    // notify other modules (history, UI)
+    try {
+      window.dispatchEvent(new CustomEvent("chatiip:auth-changed", { detail: { user } }));
+    } catch {}
   }
 
   function clearCurrentUser() {
     localStorage.removeItem(STORAGE_CURRENT);
     localStorage.removeItem("chatiip_user_id");
+
+    try {
+      window.dispatchEvent(new CustomEvent("chatiip:auth-changed", { detail: { user: null } }));
+    } catch {}
   }
 
   function getUsers() {
@@ -278,7 +287,6 @@
     if (!bar) return;
 
     const isMobile = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
-    const newsBtn = document.getElementById("newsBtn");
 
     // Reset inline styles so resize (desktop <-> mobile) always looks correct
     bar.style.position = "fixed";
@@ -287,37 +295,34 @@
     bar.style.transform = "";
     bar.style.top = "";
 
-    // ✅ Desktop: đưa nút Đăng nhập/Đăng ký sát hơn nữa cạnh nút Tin tức
-    if (!isMobile && newsBtn) {
-      const rect = newsBtn.getBoundingClientRect();
-      const gap = 4; // gần hơn
-      bar.style.top = rect.top + "px";
+    // Desktop: sát góc phải trên
+    if (!isMobile) {
+      bar.style.top = "16px";
+      bar.style.right = "16px";
       bar.style.left = "auto";
-      bar.style.right = (window.innerWidth - rect.left + gap) + "px";
       bar.style.transform = "none";
       return;
     }
 
-    // ✅ Mobile: luôn giữ ở giữa màn hình (không đổi layout mobile)
+    // Mobile: giữ ở giữa nhưng phải nằm dưới mobile topbar để không bị che bởi nút hamburger.
+    // Nếu không có mobile topbar thì fallback về 16px.
+    const topbar = document.getElementById("mobileTopbar");
+    let topOffset = 16;
+    if (topbar) {
+      try {
+        const cs = window.getComputedStyle(topbar);
+        if (cs && cs.display !== "none") {
+          const h = Math.round(topbar.getBoundingClientRect().height || 0);
+          if (h > 0) topOffset = h + 12;
+        }
+      } catch (_) {
+        // ignore
+      }
+    }
+    bar.style.top = String(topOffset) + "px";
     bar.style.left = "50%";
     bar.style.right = "auto";
     bar.style.transform = "translateX(-50%)";
-
-    const hasSidebar = !!document.getElementById("sidebar");
-    if (hasSidebar) {
-      bar.style.top = "16px";
-      return;
-    }
-
-    // If there's a header, place below it; else default top.
-    const header = document.querySelector(".header") || document.querySelector("header");
-    if (header) {
-      const h = header.getBoundingClientRect().height || 64;
-      const top = Math.min(16 + h + 8, 120);
-      bar.style.top = top + "px";
-    } else {
-      bar.style.top = "16px";
-    }
   }
 
   // Decide whether to show the top auth bar (Đăng nhập/Đăng ký).
@@ -516,9 +521,10 @@ function injectAuthUI() {
               <div class="setting-row">
                 <div class="setting-text">
                   <div class="setting-title">Ảnh đại diện</div>
-                  <div class="setting-desc">Đổi avatar hiển thị (link ảnh).</div>
+                  <div class="setting-desc">Tải ảnh từ máy hoặc nhập link ảnh.</div>
                 </div>
                 <button class="pill-btn" id="changeAvatarBtn" type="button">Đổi avatar</button>
+                <input id="avatarFileInput" type="file" accept="image/*" style="display:none" />
               </div>
 
 
@@ -553,6 +559,10 @@ function injectAuthUI() {
               </div>
             </div>
 
+            <button class="menu-item" id="openArchiveBtn" type="button">
+              <i class="fas fa-box-archive"></i> Lưu trữ
+            </button>
+
             <button class="menu-item logout-item" id="modalLogoutBtn" type="button">
               <i class="fas fa-right-from-bracket"></i> Đăng xuất
             </button>
@@ -562,85 +572,6 @@ function injectAuthUI() {
       document.body.appendChild(overlay);
     }
 
-    // Sidebar account section (only when #sidebar exists)
-    const sidebar = document.getElementById("sidebar");
-    if (sidebar && !document.getElementById("sidebarAccount")) {
-      const account = document.createElement("div");
-      account.id = "sidebarAccount";
-      account.className = "sidebar-account";
-      account.innerHTML = `
-        <div class="sidebar-divider"></div>
-
-        <button class="menu-item account-toggle" id="accountToggleBtn" type="button">
-          <i class="fas fa-user-circle"></i>
-          <span class="account-toggle-text" id="accountLabel">Tài khoản</span>
-          <i class="fas fa-chevron-down chevron"></i>
-        </button>
-
-        <div class="account-panel" id="accountPanel" style="display:none;">
-          <div class="account-guest" id="accountGuest">
-            <div class="account-guest-title">Bạn chưa đăng nhập</div>
-            <div class="account-guest-actions">
-              <button class="auth-btn small" id="sidebarLoginBtn" type="button">Đăng nhập</button>
-              <button class="auth-btn secondary small" id="sidebarRegisterBtn" type="button">Đăng ký</button>
-            </div>
-            <div class="account-guest-hint">Đăng nhập để đồng bộ lịch sử và cài đặt.</div>
-          </div>
-
-          <div class="account-user" id="accountUser" style="display:none;">
-            <div class="account-row">
-              <div class="avatar" id="accountAvatar">U</div>
-              <div class="account-meta">
-                <div class="account-name" id="accountName">User</div>
-                <div class="account-email" id="accountEmail">email</div>
-              </div>
-            </div>
-
-            <div class="settings-group">
-              <div class="settings-title">Cài đặt</div>
-
-              <div class="setting-row">
-                <div class="setting-text">
-                  <div class="setting-title">Thông báo</div>
-                  <div class="setting-desc">Bật/tắt thông báo trên web</div>
-                </div>
-                <label class="switch">
-                  <input type="checkbox" id="settingNotifications" />
-                  <span class="slider"></span>
-                </label>
-              </div>
-
-              <div class="setting-row">
-                <div class="setting-text">
-                  <div class="setting-title">Chủ đề</div>
-                  <div class="setting-desc">Sáng / tối</div>
-                </div>
-                <button class="pill-btn" id="themeToggleBtn" type="button">
-                  <i id="themeToggleIcon" class="fas fa-sun"></i>
-                  <span id="themeToggleText">Sáng</span>
-                </button>
-              </div>
-
-              <div class="setting-row">
-                <div class="setting-text">
-                  <div class="setting-title">Cài đặt chung</div>
-                  <div class="setting-desc">Một số tuỳ chọn cơ bản (demo)</div>
-                </div>
-                <span class="badge">Đang phát triển</span>
-              </div>
-            </div>
-
-            <button class="menu-item logout-item" id="logoutBtn" type="button">
-              <i class="fas fa-right-from-bracket"></i> Đăng xuất
-            </button>
-          </div>
-        </div>
-      `;
-
-      // append after sidebar-menu if exists
-      const sidebarMenu = sidebar.querySelector(".sidebar-menu") || sidebar;
-      sidebarMenu.appendChild(account);
-    }
   }
 
   function openOverlay(id) {
@@ -676,28 +607,20 @@ function injectAuthUI() {
   }
 
   // --------------- Account UI sync ----------------
-  function syncSidebarAccountUI(user) {
-    const guest = document.getElementById("accountGuest");
-    const userWrap = document.getElementById("accountUser");
-    if (!guest || !userWrap) return;
+  function syncRailAndPanelAccountUI(user) {
+    // Rail avatar
+    const railAvatar = document.getElementById("railAvatar");
+    applyAvatarElement(railAvatar, user || null);
 
-    guest.style.display = user ? "none" : "block";
-    userWrap.style.display = user ? "block" : "none";
+    // Sidebar panel footer account
+    const panelName = document.getElementById("sidebarAccountName");
+    const panelEmail = document.getElementById("sidebarAccountEmail");
+    const panelAvatar = document.getElementById("sidebarAccountAvatar");
+    if (panelName) panelName.textContent = user ? (user.name || "Tài khoản") : "Tài khoản";
+    if (panelEmail) panelEmail.textContent = user ? (user.email || user.provider || "") : "Chưa đăng nhập";
+    applyAvatarElement(panelAvatar, user || null);
 
-    if (user) {
-      const name = document.getElementById("accountName");
-      const email = document.getElementById("accountEmail");
-      const avatar = document.getElementById("accountAvatar");
-      if (name) name.textContent = user.name || "Tài khoản";
-      if (email) email.textContent = user.email || user.provider || "";
-      applyAvatarElement(avatar, user);
-    }
-
-    // settings
-    const settings = getSettings();
-    const notif = document.getElementById("settingNotifications");
-    if (notif) notif.checked = !!settings.notifications;
-
+    // Theme should still apply globally
     const theme = localStorage.getItem(STORAGE_THEME) || "light";
     applyTheme(theme);
   }
@@ -736,27 +659,14 @@ function injectAuthUI() {
       return;
     }
 
-    // logged in
-    if (hasSidebar) {
-      // hide bar entirely (account lives in hamburger)
-      bar.style.display = "none";
-    } else {
-      // no sidebar: show a single account button
-      bar.style.display = "flex";
-      if (loginBtn) loginBtn.style.display = "none";
-      if (regBtn) regBtn.style.display = "none";
-      if (accountBtn) {
-        accountBtn.style.display = "inline-flex";
-        const t = document.getElementById("accountOpenBtnText");
-        if (t) t.textContent = user.name || "Tài khoản";
-      }
-    }
+    // logged in: ẩn luôn thanh Đăng nhập/Đăng ký (tài khoản đã có ở sidebar)
+    bar.style.display = "none";
   }
 
   function syncAllUI() {
     const user = getCurrentUser();
     syncTopBarUI(user);
-    syncSidebarAccountUI(user);
+    syncRailAndPanelAccountUI(user);
     syncAccountModalUI(user);
   }
 
@@ -1007,12 +917,116 @@ function injectAuthUI() {
     }
   }
 
+
+
+  async function compressImageToDataUrl(file, maxSide = 256, quality = 0.86) {
+    return new Promise((resolve, reject) => {
+      try {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          try {
+            const w = img.naturalWidth || img.width;
+            const h = img.naturalHeight || img.height;
+            const scale = Math.min(1, maxSide / Math.max(w, h));
+            const cw = Math.max(1, Math.round(w * scale));
+            const ch = Math.max(1, Math.round(h * scale));
+
+            const canvas = document.createElement('canvas');
+            canvas.width = cw;
+            canvas.height = ch;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, cw, ch);
+
+            // ưu tiên jpeg cho nhẹ; nếu ảnh có alpha thì dùng png
+            const hasAlpha = false; // không chắc chắn → vẫn dùng jpeg
+            const mime = hasAlpha ? 'image/png' : 'image/jpeg';
+
+            const dataUrl = canvas.toDataURL(mime, quality);
+            URL.revokeObjectURL(url);
+            resolve(dataUrl);
+          } catch (e) {
+            URL.revokeObjectURL(url);
+            reject(e);
+          }
+        };
+        img.onerror = (e) => {
+          URL.revokeObjectURL(url);
+          reject(e);
+        };
+        img.src = url;
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  async function updateAvatarUrl(avatarUrl) {
+    const data = await api("/auth/me", {
+      method: "PUT",
+      body: { avatarUrl: String(avatarUrl || "").trim() }
+    });
+    setCurrentUser(data.user);
+    syncAllUI();
+  }
+
+
+
+  async function compressAvatarFileToDataUrl(file, maxSize = 256) {
+    // Nén ảnh client-side để tránh quá nặng khi lưu dataURL
+    return await new Promise((resolve, reject) => {
+      try {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("Không đọc được file ảnh."));
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = () => reject(new Error("File ảnh không hợp lệ."));
+          img.onload = () => {
+            const w = img.naturalWidth || img.width;
+            const h = img.naturalHeight || img.height;
+            const scale = Math.min(1, maxSize / Math.max(w, h));
+            const cw = Math.max(1, Math.round(w * scale));
+            const ch = Math.max(1, Math.round(h * scale));
+
+            const canvas = document.createElement("canvas");
+            canvas.width = cw;
+            canvas.height = ch;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, cw, ch);
+
+            // jpeg thường nhỏ hơn png
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+            resolve(dataUrl);
+          };
+          img.src = String(reader.result || "");
+        };
+        reader.readAsDataURL(file);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
   async function handleChangeAvatar() {
     const user = getCurrentUser();
     if (!user) {
       showToast("Vui lòng đăng nhập trước.", "error");
       return;
     }
+
+    const useUpload = window.confirm("Bạn muốn đổi avatar bằng ảnh từ máy?\n\n- Nhấn OK: chọn ảnh trên máy\n- Nhấn Cancel: nhập URL ảnh");
+
+    if (useUpload) {
+      const fileInput = document.getElementById("avatarFileInput");
+      if (!fileInput) {
+        showToast("Không tìm thấy bộ chọn ảnh.", "error");
+        return;
+      }
+      // reset để chọn lại cùng 1 file vẫn trigger change
+      fileInput.value = "";
+      fileInput.click();
+      return;
+    }
+
     const current = user.avatarUrl || "";
     const url = window.prompt("Nhập URL ảnh avatar (jpg/png):", current);
     if (!url) return;
@@ -1031,6 +1045,23 @@ function injectAuthUI() {
   }
 
   function wireEvents() {
+    // Avatar upload
+    document.getElementById("avatarFileInput")?.addEventListener("change", async (e) => {
+      try {
+        const file = e.target && e.target.files ? e.target.files[0] : null;
+        if (!file) return;
+        if (!/^image\//i.test(file.type)) {
+          showToast("File không phải hình ảnh.", "error");
+          return;
+        }
+        const dataUrl = await compressImageToDataUrl(file, 256, 0.86);
+        await updateAvatarUrl(dataUrl);
+        showToast("Đã cập nhật avatar.", "success");
+      } catch (err) {
+        showToast(err?.message || "Không thể cập nhật avatar.", "error");
+      }
+    });
+
     document.getElementById("forgotOpenBtn")?.addEventListener("click", () => {
       closeOverlay("authOverlay");
       openOverlay("forgotOverlay");
@@ -1144,6 +1175,20 @@ function injectAuthUI() {
     // Sidebar logout
     document.getElementById("logoutBtn")?.addEventListener("click", logout);
 
+    // Rail + Panel account button (ChatGPT-style)
+    const openAccountOrAuth = () => {
+      const user = getCurrentUser();
+      if (!user) {
+        setAuthTab("login");
+        openOverlay("authOverlay");
+        return;
+      }
+      syncAccountModalUI(user);
+      openOverlay("accountOverlay");
+    };
+    document.getElementById("railAccountBtn")?.addEventListener("click", openAccountOrAuth);
+    document.getElementById("sidebarAccountBtn")?.addEventListener("click", openAccountOrAuth);
+
     // Account button on non-sidebar pages
     document.getElementById("accountOpenBtn")?.addEventListener("click", () => {
       const user = getCurrentUser();
@@ -1162,7 +1207,38 @@ function injectAuthUI() {
       changeAvatarBtn.addEventListener("click", handleChangeAvatar);
     }
 
+    const avatarFileInput = document.getElementById("avatarFileInput");
+    if (avatarFileInput) {
+      avatarFileInput.addEventListener("change", async (e) => {
+        try {
+          const file = e.target && e.target.files ? e.target.files[0] : null;
+          if (!file) return;
+          if (!/^image\//i.test(file.type || "")) {
+            showToast("Vui lòng chọn file ảnh (jpg/png).", "error");
+            return;
+          }
+
+          const dataUrl = await compressAvatarFileToDataUrl(file, 256);
+          const data = await api("/auth/me", {
+            method: "PUT",
+            body: { avatarUrl: dataUrl }
+          });
+          setCurrentUser(data.user);
+          syncAllUI();
+          showToast("Đã cập nhật avatar.", "success");
+        } catch (err) {
+          showToast(err.message || "Không thể cập nhật avatar.", "error");
+        }
+      });
+    }
+
     document.getElementById("modalLogoutBtn")?.addEventListener("click", logout);
+
+    document.getElementById("openArchiveBtn")?.addEventListener("click", () => {
+      // Mở trang quản lý lưu trữ (do script.js xử lý)
+      closeOverlay("accountOverlay");
+      try { window.dispatchEvent(new CustomEvent("chatiip:open-archive")); } catch (_) {}
+    });
 
     // Modal settings events
     document.getElementById("modalNotifications")?.addEventListener("change", (e) => {

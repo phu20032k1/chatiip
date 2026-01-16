@@ -114,6 +114,25 @@ body[data-page="news"] {
     border: 1px solid var(--border);
     background: var(--surface2);
 }
+
+/* Nút điều hướng phụ (không phải "Quay lại") */
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #111827;
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.nav-btn:hover {
+  background: #f9fafb;
+}
 .back-btn:hover {
     background: var(--surface);
 }
